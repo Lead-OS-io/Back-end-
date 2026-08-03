@@ -1,0 +1,70 @@
+# Traefik Static Configuration
+api:
+  dashboard: true
+  insecure: false
+
+ping:
+  entryPoint: web
+
+entryPoints:
+  web:
+    address: ":80"
+  websecure:
+    address: ":443"
+
+providers:
+  file:
+    filename: /etc/traefik/dynamic.yml
+    watch: true
+
+log:
+  level: INFO
+  format: json
+
+accessLog:
+  format: json
+  filters:
+    statusCodes:
+      - "400-599"
+
+metrics:
+  prometheus:
+    addEntryPointsLabels: true
+    addServicesLabels: true
+
+# Rate limiting middleware
+http:
+  middlewares:
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 50
+    
+    cors:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+        accessControlAllowHeaders:
+          - "*"
+        # Base domain + tenant subdomains, plus local dev. Custom tenant
+        # domains (tenant_domains table) are not covered here.
+        accessControlAllowOriginListRegex:
+          - "^https://([a-zA-Z0-9-]+\\.)*airedesk\\.com$"
+          - "^http://localhost:3000$"
+        accessControlMaxAge: 100
+        addVaryHeader: true
+    
+    secure-headers:
+      headers:
+        frameDeny: true
+        contentTypeNosniff: true
+        browserXssFilter: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+

@@ -1,0 +1,251 @@
+# Traefik Dynamic Configuration
+http:
+  routers:
+    # Auth Service
+    auth-router:
+      rule: "PathPrefix(`/api/auth`)"
+      service: auth-service
+      priority: 10
+      middlewares:
+        - strip-identity-headers
+        - rate-limit
+        - cors
+        - secure-headers
+      entryPoints:
+        - web
+        - websecure
+
+    # Tenant Service
+    tenant-router:
+      rule: "PathPrefix(`/api/tenants`) || PathPrefix(`/api/resolve`)"
+      service: tenant-service
+      middlewares:
+        - strip-identity-headers
+        - rate-limit
+        - cors
+        - secure-headers
+      entryPoints:
+        - web
+        - websecure
+
+    # Google OAuth (Desk frontend legacy paths) → auth-service /api/auth/google/*
+    google-oauth-router:
+      rule: >-
+        PathPrefix(`/api/google/status`) ||
+        PathPrefix(`/api/google/auth-url`) ||
+        PathPrefix(`/api/google/callback`) ||
+        PathPrefix(`/api/google/disconnect`)
+      service: auth-service
+      priority: 200
+      middlewares:
+        - strip-identity-headers
+        - google-oauth-rewrite
+        - rate-limit
+        - cors
+        - secure-headers
+      entryPoints:
+        - web
+        - websecure
+
+    # Cases Service (cases, drafts, book-of-business, medical reference data)
+    cases-router:
+      rule: >-
+        PathPrefix(`/api/cases`) ||
+        PathPrefix(`/api/book-of-business`) ||
+        PathPrefix(`/api/drafts`) ||
+        PathPrefix(`/api/medical`)
+      service: cases-service
+      middlewares:
+        - strip-identity-headers
+        - rate-limit
+        - cors
+        - secure-headers
+      entryPoints:
+        - web
+        - websecure
+
+    # Users Service (users + Aria SaaS webhooks)
+    users-router:
+      rule: "PathPrefix(`/api/users`) || PathPrefix(`/api/saas/webhooks`)"
+      service: users-service
+      middlewares:
+        - strip-identity-headers
+        - rate-limit
+        - cors
+        - secure-headers
+      entryPoints:
+        - web
+        - websecure
+
+    # News Service (news, banners, announcements, admin notifications)
+    news-router:
+      rule: "PathPrefix(`/api/news`) || PathPrefix(`/api/banners`) || PathPrefix(`/api/admin/notifications`) || PathPrefix(`/api/announcements`)"
+      service: news-service
+      middlewares:
+        - strip-identity-headers
+        - rate-limit
+        - cors
+        - secure-headers
+      entryPoints:
+        - web
+        - websecure
+
+    # Files Service
+    files-router:
+      rule: "PathPrefix(`/api/files`)"
+      service: files-service
+      middlewares:
+        - strip-identity-headers
+        - rate-limit
+        - cors
+        - secure-headers
+      entryPoints:
+        - web
+        - websecure
+
+    # Health check aggregator
+    health-router:
+      rule: "Path(`/health`)"
+      service: health-service
+      entryPoints:
+        - web
+        - websecure
+
+    # Desk Service - gateway shell (static media + internal proxies only)
+    desk-router:
+      rule: >-
+        PathPrefix(`/api/internal`) ||
+        PathPrefix(`/api/media`) ||
+        PathPrefix(`/media`) ||
+        PathPrefix(`/tutorials`)
+      service: desk-service
+      middlewares:
+        - strip-identity-headers
+        - rate-limit
+        - cors
+        - secure-headers
+      entryPoints:
+        - web
+        - websecure
+
+  services:
+    auth-service:
+      loadBalancer:
+        servers:
+          - url: "http://auth-service:8001"
+        healthCheck:
+          path: /health
+          interval: 30s
+          timeout: 5s
+
+    tenant-service:
+      loadBalancer:
+        servers:
+          - url: "http://tenant-service:8002"
+        healthCheck:
+          path: /health
+          interval: 30s
+          timeout: 5s
+
+    cases-service:
+      loadBalancer:
+        servers:
+          - url: "http://cases-service:8004"
+        healthCheck:
+          path: /health
+          interval: 30s
+          timeout: 5s
+
+    users-service:
+      loadBalancer:
+        servers:
+          - url: "http://users-service:8005"
+        healthCheck:
+          path: /health
+          interval: 30s
+          timeout: 5s
+
+    news-service:
+      loadBalancer:
+        servers:
+          - url: "http://news-service:8006"
+        healthCheck:
+          path: /health
+          interval: 30s
+          timeout: 5s
+
+    desk-service:
+      loadBalancer:
+        servers:
+          - url: "http://desk-service:8007"
+        healthCheck:
+          path: /health
+          hostname: localhost
+          interval: 30s
+          timeout: 20s
+
+    files-service:
+      loadBalancer:
+        servers:
+          - url: "http://files-service:8011"
+        healthCheck:
+          path: /health
+          interval: 30s
+          timeout: 5s
+
+    health-service:
+      loadBalancer:
+        servers:
+          - url: "http://auth-service:8001"
+
+  middlewares:
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 50
+        period: 1s
+
+    cors:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+        accessControlAllowHeaders:
+          - "*"
+        # Base domain + tenant subdomains, plus local dev. Custom tenant
+        # domains (tenant_domains table) are not covered here.
+        accessControlAllowOriginListRegex:
+          - "^https://([a-zA-Z0-9-]+\\.)*airedesk\\.com$"
+          - "^http://localhost:3000$"
+        accessControlMaxAge: 100
+        addVaryHeader: true
+
+    secure-headers:
+      headers:
+        frameDeny: true
+        contentTypeNosniff: true
+        browserXssFilter: true
+
+    # Strips client-supplied identity/role headers before proxying downstream.
+    # Services must derive identity/role only from the signature-verified JWT -
+    # these headers were previously trusted as a fallback by some services,
+    # letting any caller self-declare another user or admin.
+    strip-identity-headers:
+      headers:
+        customRequestHeaders:
+          X-User-Id: ""
+          X-Role-Id: ""
+          X-Is-Staff: ""
+          X-Is-Superuser: ""
+          X-User-Role-Id: ""
+          X-User-Is-Staff: ""
+          X-User-Is-Superuser: ""
+
+    google-oauth-rewrite:
+      replacePathRegex:
+        regex: "^/api/google/(.*)"
+        replacement: "/api/auth/google/$1"

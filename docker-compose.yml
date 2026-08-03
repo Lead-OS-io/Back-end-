@@ -1,0 +1,256 @@
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: monolith-gateway
+    command:
+    - --configFile=/etc/traefik/traefik.yml
+    ports:
+    - 80:80
+    - 443:443
+    volumes:
+    - ./services/api-gateway/traefik.yml:/etc/traefik/traefik.yml:ro
+    - ./services/api-gateway/dynamic.yml:/etc/traefik/dynamic.yml:ro
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - wget --quiet --tries=1 --spider http://localhost/ping || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    labels:
+    - traefik.enable=true
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    container_name: monolith-auth
+    env_file:
+    - path: .env
+      required: false
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      PORT: 8001
+      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_SCHEMA: ${AUTH_DATABASE_SCHEMA:-public}
+      REDIS_URL: ${REDIS_URL}/0
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY required}
+      BCRYPT_PEPPER: ${BCRYPT_PEPPER:-}
+      PASSWORD_FERNET_KEY: ${DESK_FERNET_KEY}
+      FERNET_KEY: ${FERNET_KEY:-}
+      DESK_SECRET_KEY: ${DESK_SECRET_KEY}
+      HUB_SECRET_KEY: ${HUB_SECRET_KEY}
+      NEST_SECRET_KEY: ${NEST_SECRET_KEY}
+      TENANT_SERVICE_URL: http://tenant-service:8002
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8001/health').read()
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.auth.rule=PathPrefix(`/api/auth`)
+    - traefik.http.services.auth.loadbalancer.server.port=8001
+  tenant-service:
+    build:
+      context: ./services/tenant-service
+      dockerfile: Dockerfile
+    container_name: monolith-tenant
+    environment:
+      PORT: 8002
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}/0
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY required}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+      CLOUDFLARE_ZONE_ID: ${CLOUDFLARE_ZONE_ID:-}
+      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID:-}
+      BASE_DOMAIN: ${BASE_DOMAIN:-airedesk.com}
+      CNAME_TARGET: ${CNAME_TARGET:-customers.airedesk.com}
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8002/health').read()
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.tenant.rule=PathPrefix(`/api/tenants`) || PathPrefix(`/api/resolve`)
+    - traefik.http.services.tenant.loadbalancer.server.port=8002
+  cases-service:
+    build:
+      context: ./services/cases-service
+      dockerfile: Dockerfile
+    container_name: monolith-cases
+    environment:
+      PORT: 8004
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}/0
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY required}
+      AUTH_SERVICE_URL: http://auth-service:8001
+      TENANT_SERVICE_URL: http://tenant-service:8002
+      USERS_SERVICE_URL: http://users-service:8005
+      DB_POOL_SIZE: 20
+      DB_MAX_OVERFLOW: 20
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8004/health').read()
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.cases.rule=PathPrefix(`/api/cases`) || PathPrefix(`/api/book-of-business`)
+      || PathPrefix(`/api/drafts`)
+    - traefik.http.services.cases.loadbalancer.server.port=8004
+  users-service:
+    build:
+      context: ./services/users-service
+      dockerfile: Dockerfile
+    container_name: monolith-users
+    environment:
+      PORT: 8005
+      DATABASE_URL: ${DATABASE_URL}
+      SECRET_KEY: ${DESK_SECRET_KEY:-}
+      AUTH_SERVICE_URL: http://auth-service:8001
+      DB_POOL_SIZE: 20
+      DB_MAX_OVERFLOW: 20
+      WEBHOOK_API_KEY: ${WEBHOOK_API_KEY:-}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8005/health').read()
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.users.rule=PathPrefix(`/api/users`) || PathPrefix(`/api/saas/webhooks`)
+    - traefik.http.services.users.loadbalancer.server.port=8005
+  news-service:
+    build:
+      context: ./services/news-service
+      dockerfile: Dockerfile
+    container_name: monolith-news
+    environment:
+      PORT: 8006
+      DATABASE_URL: ${DATABASE_URL}
+      SECRET_KEY: ${DESK_SECRET_KEY:-}
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8006/health').read()
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.news.rule=PathPrefix(`/api/news`) || PathPrefix(`/api/banners`)
+      || PathPrefix(`/api/admin/notifications`) || PathPrefix(`/api/announcements`)
+    - traefik.http.services.news.loadbalancer.server.port=8006
+  desk-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: monolith-desk
+    volumes:
+    - ./data:/data
+    - ./media:/app/media
+    environment:
+      PORT: 8007
+      SERVICE_ROLE: web
+      BOOT_INTERNAL_SERVICES: 'false'
+      AUTH_SERVICE_URL: http://auth-service:8001
+      TENANT_SERVICE_URL: http://tenant-service:8002
+      USERS_SERVICE_URL: http://users-service:8005
+      USERS_SERVICE_URL_INTERNAL: http://users-service:8005
+      NEWS_SERVICE_URL: http://news-service:8006
+      FILES_SERVICE_URL: http://files-service:8011
+      MEDIA_ROOT: /app/media
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      tenant-service:
+        condition: service_healthy
+      users-service:
+        condition: service_healthy
+      news-service:
+        condition: service_healthy
+      files-service:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8007/health').read()
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.desk.rule=PathPrefix(`/api/internal`) || PathPrefix(`/api/media`)
+      || PathPrefix(`/api/google`) || PathPrefix(`/api/docs`) || PathPrefix(`/api/redoc`)
+      || PathPrefix(`/api/openapi.json`) || PathPrefix(`/media`) || PathPrefix(`/tutorials`)
+      || Path(`/health`) || Path(`/`)
+    - traefik.http.services.desk.loadbalancer.server.port=8007
+  files-service:
+    build:
+      context: ./services/files-service
+      dockerfile: Dockerfile
+    container_name: monolith-files
+    volumes:
+    - ./data:/data
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      SECRET_KEY: ${DESK_SECRET_KEY:-}
+      PORT: 8011
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8011/health').read()
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    labels:
+    - traefik.enable=true
+    - traefik.http.routers.files.rule=PathPrefix(`/api/files`)
+    - traefik.http.services.files.loadbalancer.server.port=8011
