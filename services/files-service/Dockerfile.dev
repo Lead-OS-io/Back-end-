@@ -1,0 +1,9 @@
+# syntax=docker/dockerfile:1
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+WORKDIR /app
+COPY shared/ ./shared/
+COPY services/files-service/ ./services/files-service/
+WORKDIR /app/services/files-service
+RUN uv sync --frozen
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8004", \
+     "--reload", "--reload-dir", "/app/services/files-service/app", "--reload-dir", "/app/shared/src"]
