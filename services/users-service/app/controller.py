@@ -9,22 +9,18 @@ from uuid import UUID
 
 from sqlmodel import Session
 
-from app.schemas.agent import AgentSettingResponse, AgentSettingUpdate
 from app.schemas.calendar import (
     CalendarCreate, CalendarReminderItem, CalendarResponse, CalendarUpdate,
-    PolicyWarningSyncRequest, PolicyWarningSyncResponse,
 )
 from app.schemas.request import (
     UserRequestCreate, UserRequestListResponse, UserRequestResponse, UserRequestUpdate,
 )
 from app.schemas.user import UserCreate, UserListResponse, UserResponse, UserUpdate
-from app.schemas.webhook import AriaWebhookPayload
 from app.serializers.user import (
-    agent_setting_to_response, user_request_to_response, user_to_response,
+    user_request_to_response, user_to_response,
 )
 from app.services import calendar as calendar_service
 from app.services import users as users_service
-from app.services import webhooks as webhooks_service
 from shared.utils.exceptions import AppError
 
 
@@ -106,28 +102,6 @@ def user_stats(*, db: Session, identity) -> dict:
     return users_service.get_user_stats(db=db, tenant_id=identity.tenant_id)
 
 
-# ---- Agent settings ----
-def get_agent_settings(*, user_id: UUID, db: Session, identity) -> AgentSettingResponse:
-    user = users_service.get_user(db=db, user_id=user_id, tenant_id=identity.tenant_id)
-    if not user:
-        raise AppError(404, "User not found")
-    setting = users_service.get_or_create_agent_settings(db=db, user_id=user_id,
-                                                         tenant_id=identity.tenant_id)
-    return agent_setting_to_response(setting)
-
-
-def update_agent_settings(*, user_id: UUID, data: AgentSettingUpdate, db: Session,
-                          identity) -> AgentSettingResponse:
-    user = users_service.get_user(db=db, user_id=user_id, tenant_id=identity.tenant_id)
-    if not user:
-        raise AppError(404, "User not found")
-    setting = users_service.get_or_create_agent_settings(db=db, user_id=user_id,
-                                                         tenant_id=identity.tenant_id)
-    updated = users_service.update_agent_settings(db=db, setting=setting,
-                                                  new_settings=data.settings)
-    return agent_setting_to_response(updated)
-
-
 # ---- User requests ----
 def create_user_request(*, user_id: UUID, data: UserRequestCreate, db: Session,
                         identity) -> UserRequestResponse:
@@ -173,14 +147,6 @@ def update_user_request(*, user_id: UUID, request_id: UUID, data: UserRequestUpd
     return user_request_to_response(updated)
 
 
-# ---- Webhook Aria ----
-def handle_aria_webhook(*, payload: AriaWebhookPayload, db: Session, settings,
-                        x_api_key: Optional[str], authorization: Optional[str]) -> dict:
-    return webhooks_service.handle_aria_webhook(
-        db=db, settings=settings, payload=payload,
-        x_api_key=x_api_key, authorization=authorization)
-
-
 # ---- Calendar ----
 def create_calendar_event(*, data: CalendarCreate, db: Session, identity,
                           authorization: Optional[str]) -> CalendarResponse:
@@ -217,12 +183,6 @@ def calendar_reminders(*, hours_ahead: int, db: Session,
     return calendar_service.upcoming_reminders(
         db=db, tenant_id=identity.tenant_id, user_id=identity.user_id,
         hours_ahead=hours_ahead)
-
-
-def sync_policy_warnings(*, data: PolicyWarningSyncRequest, db: Session,
-                         identity) -> PolicyWarningSyncResponse:
-    return calendar_service.sync_policy_warnings(
-        db=db, tenant_id=identity.tenant_id, user_id=identity.user_id, payload=data)
 
 
 # ---- Google calendar ----

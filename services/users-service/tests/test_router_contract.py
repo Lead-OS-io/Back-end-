@@ -12,44 +12,13 @@ class _StubUser:
         self.email = "u@x.com"
         self.first_name = "U"
         self.last_name = None
-        self.middle_name = None
-        self.country_code = None
-        self.mobile = None
-        self.npn = None
-        self.anpn = None
-        self.compensation = None
-        self.job_title = None
         self.role_id = 2
-        self.is_individual = None
-        self.business_name = None
-        self.tax_number = None
-        self.fein = None
-        self.residential_address = None
-        self.mailing_address = None
-        self.business_address = None
         self.permissions = None
         self.is_active = True
         self.is_staff = False
         self.is_superuser = False
         self.date_joined = datetime.utcnow()
         self.last_login = None
-        self.upline_id = None
-        self.invited_by_id = None
-        self.production_upline_id = None
-        self.accepted_campaign_terms_at = None
-        self.accepted_underwriter_terms_at = None
-        self.created_at = datetime.utcnow()
-        self.modified_at = datetime.utcnow()
-        for k, v in kw.items():
-            setattr(self, k, v)
-
-
-class _StubAgentSetting:
-    def __init__(self, **kw):
-        self.id = uuid.uuid4()
-        self.user_id = USER_ID
-        self.tenant_id = TENANT_ID
-        self.settings = {}
         self.created_at = datetime.utcnow()
         self.modified_at = datetime.utcnow()
         for k, v in kw.items():
@@ -89,9 +58,6 @@ class _StubCalendarEvent:
         self.priority = "medium"
         self.status = "scheduled"
         self.assigned_to_id = None
-        self.case_data_id = None
-        self.policy_id = None
-        self.agency_id = None
         self.reminder_before_minutes = 15
         self.visibility = "private"
         self.shared_with = []
@@ -183,26 +149,6 @@ def test_me(client, svc_headers, monkeypatch):
     assert resp.json()["id"] == str(USER_ID)
 
 
-# ---- Agent settings ----
-def test_get_agent_settings(client, svc_headers, monkeypatch):
-    monkeypatch.setattr("app.services.users.get_user", lambda **kwargs: _StubUser())
-    monkeypatch.setattr("app.services.users.get_or_create_agent_settings",
-                        lambda **kwargs: _StubAgentSetting())
-    resp = client.get(f"/api/users/{USER_ID}/agent-settings", headers=svc_headers)
-    assert resp.status_code == 200
-
-
-def test_update_agent_settings(client, svc_headers, monkeypatch):
-    monkeypatch.setattr("app.services.users.get_user", lambda **kwargs: _StubUser())
-    monkeypatch.setattr("app.services.users.get_or_create_agent_settings",
-                        lambda **kwargs: _StubAgentSetting())
-    monkeypatch.setattr("app.services.users.update_agent_settings",
-                        lambda **kwargs: _StubAgentSetting(settings={"a": 1}))
-    resp = client.put(f"/api/users/{USER_ID}/agent-settings",
-                      json={"settings": {"a": 1}}, headers=svc_headers)
-    assert resp.status_code == 200
-
-
 # ---- User requests ----
 def test_create_user_request(client, svc_headers, monkeypatch):
     monkeypatch.setattr("app.services.users.get_user", lambda **kwargs: _StubUser())
@@ -231,28 +177,6 @@ def test_update_user_request(client, svc_headers, monkeypatch):
     resp = client.put(f"/api/users/{USER_ID}/requests/{uuid.uuid4()}",
                       json={"status": "approved"}, headers=svc_headers)
     assert resp.status_code == 200
-
-
-# ---- Webhook Aria (ruta pública: service-token via gateway + X-API-Key) ----
-def test_webhook_aria_ok(client, svc_headers, monkeypatch):
-    monkeypatch.setattr("app.services.webhooks.handle_aria_webhook",
-                        lambda **kwargs: {"status": "processed"})
-    payload = {
-        "event_type": "ACCESS_GRANTED",
-        "timestamp": datetime.utcnow().isoformat(),
-        "user": {"email": "u@x.com", "first_name": "U", "last_name": None},
-    }
-    resp = client.post("/api/saas/webhooks/aria", json=payload,
-                       headers={**svc_headers, "X-API-Key": "test-webhook-key"})
-    assert resp.status_code == 200
-
-
-def test_webhook_aria_bad_key_is_401(client, svc_headers):
-    payload = {"event_type": "ACCESS_GRANTED", "timestamp": datetime.utcnow().isoformat(),
-               "user": {"email": "u@x.com"}}
-    resp = client.post("/api/saas/webhooks/aria", json=payload,
-                       headers={**svc_headers, "X-API-Key": "wrong-key"})
-    assert resp.status_code == 401
 
 
 # ---- Calendar ----
@@ -301,15 +225,6 @@ def test_upcoming_reminders(client, svc_headers, monkeypatch):
                         }])
     resp = client.get("/api/calendar/reminders/upcoming", headers=svc_headers)
     assert resp.status_code == 200
-
-
-def test_policy_warnings_sync(client, svc_headers, monkeypatch):
-    monkeypatch.setattr("app.services.calendar.sync_policy_warnings",
-                        lambda **kwargs: {"created": 2})
-    resp = client.post("/api/calendar/policy-warnings/sync", json={"alerts": []},
-                       headers=svc_headers)
-    assert resp.status_code == 200
-    assert resp.json()["created"] == 2
 
 
 # ---- Google calendar ----

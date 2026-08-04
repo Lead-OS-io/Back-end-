@@ -8,7 +8,6 @@ os.environ.setdefault("DATABASE_URL", "postgresql+psycopg2://x:x@localhost:5432/
 os.environ.setdefault("INTER_SERVICE_SECRET", "test-inter-service-secret")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-0123456789abcdef")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/15")
-os.environ.setdefault("WEBHOOK_API_KEY", "test-webhook-key")
 os.environ.setdefault("GOOGLE_CREDENTIALS_JSON", "{}")
 
 import fakeredis

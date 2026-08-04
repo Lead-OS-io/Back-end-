@@ -30,13 +30,6 @@ class Settings(BaseServiceSettings):
     # Inter-service
     AUTH_SERVICE_URL: str = "http://auth-service:8001"
 
-    # CORS (lo aplica el gateway; se conserva por compat de config)
-    CORS_ORIGINS: list = []
-    CORS_ORIGIN_REGEX: str = r"^https://([a-zA-Z0-9-]+\.)*airedesk\.com$|^http://localhost:3000$"
-
-    # Webhooks (Aria)
-    WEBHOOK_API_KEY: str = ""
-
     # Google (Calendar)
     GOOGLE_CREDENTIALS_JSON: Optional[str] = None
 

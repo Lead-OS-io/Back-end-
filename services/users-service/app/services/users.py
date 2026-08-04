@@ -7,7 +7,7 @@ from uuid import UUID
 from sqlmodel import Session, or_, and_
 from datetime import datetime
 
-from app.models import User, AgentSetting, UserRequest
+from app.models import User, UserRequest
 from app.schemas.user import UserCreate, UserUpdate
 from app.schemas.request import UserRequestCreate
 
@@ -76,8 +76,7 @@ def list_users(*, db: Session, tenant_id, skip: int = 0, limit: int = 20,
             or_(
                 User.email.ilike(f"%{search}%"),
                 User.first_name.ilike(f"%{search}%"),
-                User.last_name.ilike(f"%{search}%"),
-                User.npn.ilike(f"%{search}%")
+                User.last_name.ilike(f"%{search}%")
             )
         )
 
@@ -90,7 +89,6 @@ def list_users(*, db: Session, tenant_id, skip: int = 0, limit: int = 20,
 def update_user(*, db: Session, user: User, data: UserUpdate, is_admin: bool = False) -> User:
     """Update user. Only an admin caller may change privileged fields."""
     update_data = data.model_dump(exclude_unset=True)
-    update_data.pop("opt_in_notes", None)
     if not is_admin:
         for field in _PRIVILEGED_USER_FIELDS:
             update_data.pop(field, None)
@@ -115,53 +113,16 @@ def delete_user(*, db: Session, user: User) -> None:
 
 
 def get_user_stats(*, db: Session, tenant_id) -> dict:
-    """Get aggregated user statistics (total, active, agents, opt-in count)."""
+    """Get aggregated user statistics (total, active)."""
     total_users = db.query(User).filter(User.tenant_id == tenant_id).count() or 0
     active_users = db.query(User).filter(
         User.tenant_id == tenant_id,
         User.is_active == True
     ).count() or 0
-    agents = db.query(User).filter(
-        User.tenant_id == tenant_id,
-        User.is_superuser == False,
-        or_(User.role_id != 1, User.role_id.is_(None))
-    ).count() or 0
-    opt_in_users = db.query(User).filter(
-        User.tenant_id == tenant_id,
-        User.accepted_campaign_terms_at.isnot(None)
-    ).count() or 0
     return {
         "total_users": total_users,
         "active_users": active_users,
-        "agents": agents,
-        "opt_in_records": opt_in_users,
     }
-
-
-# ---- Agent settings ----
-def get_or_create_agent_settings(*, db: Session, user_id: UUID, tenant_id) -> AgentSetting:
-    setting = db.query(AgentSetting).filter(
-        AgentSetting.user_id == user_id,
-        AgentSetting.tenant_id == tenant_id
-    ).first()
-
-    if not setting:
-        setting = AgentSetting(user_id=user_id, tenant_id=tenant_id, settings={})
-        db.add(setting)
-        db.commit()
-        db.refresh(setting)
-
-    return setting
-
-
-def update_agent_settings(*, db: Session, setting: AgentSetting,
-                          new_settings: dict) -> AgentSetting:
-    setting.settings = new_settings
-    setting.modified_at = datetime.utcnow()
-    db.add(setting)
-    db.commit()
-    db.refresh(setting)
-    return setting
 
 
 # ---- User requests ----

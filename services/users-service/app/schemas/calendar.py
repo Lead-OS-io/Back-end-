@@ -24,9 +24,6 @@ class CalendarBase(BaseModel):
     status: str = "scheduled"
 
     assigned_to_id: Optional[UUID] = None
-    case_data_id: Optional[int] = None
-    policy_id: Optional[int] = None
-    agency_id: Optional[UUID] = None
 
     reminder_before_minutes: int = 15
     visibility: str = "private"
@@ -53,9 +50,6 @@ class CalendarUpdate(BaseModel):
     status: Optional[str] = None
 
     assigned_to_id: Optional[UUID] = None
-    case_data_id: Optional[int] = None
-    policy_id: Optional[int] = None
-    agency_id: Optional[UUID] = None
 
     reminder_before_minutes: Optional[int] = None
     visibility: Optional[str] = None
@@ -93,20 +87,3 @@ class CalendarReminderItem(BaseModel):
     start_date: datetime
     end_date: datetime
     location: Optional[str] = None
-    case_data_id: Optional[int] = None
-    policy_id: Optional[int] = None
-
-
-class PolicyAlertForCalendar(BaseModel):
-    id: int
-    name: Optional[str] = None
-    policy_number: Optional[str] = None
-    date: Optional[str] = None  # MM-DD-YYYY from premium-service
-
-
-class PolicyWarningSyncRequest(BaseModel):
-    alerts: List[PolicyAlertForCalendar] = Field(default_factory=list)
-
-
-class PolicyWarningSyncResponse(BaseModel):
-    created: int

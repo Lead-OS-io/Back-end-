@@ -1,5 +1,5 @@
 """
-Calendar service (Desk) + Google Calendar integration (users-service).
+Calendar service + Google Calendar integration (users-service).
 Los endpoints que sincronizan con Google reciben el Authorization header del
 cliente para obtener un access token corto via auth-service.
 """
@@ -12,12 +12,14 @@ from sqlmodel import Session, select, and_
 from app.config import settings
 from app.models import CalendarEvent
 from app.schemas.calendar import (
-    CalendarCreate, CalendarReminderItem, CalendarUpdate, PolicyWarningSyncRequest,
-    PolicyWarningSyncResponse,
+    CalendarCreate, CalendarReminderItem, CalendarUpdate,
 )
+from shared.auth.client import ServiceHttpClient
 from shared.utils.exceptions import AppError
 
-_http_client = httpx.Client(timeout=10.0)
+_http_client = ServiceHttpClient(
+    secret=settings.INTER_SERVICE_SECRET, issuer="users-service", timeout=10.0
+)
 
 
 def _fetch_google_access_token(*, authorization: str, tenant_id) -> dict:
@@ -154,9 +156,6 @@ def create_event(*, db: Session, payload: CalendarCreate, tenant_id, user_id,
         owner_id=user_id,
         created_by_id=user_id,
         assigned_to_id=payload.assigned_to_id,
-        case_data_id=payload.case_data_id,
-        policy_id=payload.policy_id,
-        agency_id=payload.agency_id,
         reminder_before_minutes=payload.reminder_before_minutes,
         reminder_sent=False,
         reminder_sent_at=None,
@@ -290,83 +289,8 @@ def upcoming_reminders(*, db: Session, tenant_id, user_id, hours_ahead: int = 24
             start_date=ev.start_date,
             end_date=ev.end_date,
             location=ev.location,
-            case_data_id=ev.case_data_id,
-            policy_id=ev.policy_id,
         ))
     return out
-
-
-def sync_policy_warnings(*, db: Session, tenant_id, user_id,
-                         payload: PolicyWarningSyncRequest) -> PolicyWarningSyncResponse:
-    created = 0
-    for alert in (payload.alerts or []):
-        try:
-            pid = int(alert.id)
-        except Exception:
-            continue
-
-        exists = db.exec(
-            select(CalendarEvent.id).where(
-                and_(
-                    CalendarEvent.tenant_id == tenant_id,
-                    CalendarEvent.owner_id == user_id,
-                    CalendarEvent.policy_id == pid,
-                    CalendarEvent.event_type == "policy_warning",
-                    CalendarEvent.is_active == True,
-                )
-            )
-        ).first()
-        if exists:
-            continue
-
-        start_dt = None
-        try:
-            if alert.date:
-                start_dt = datetime.strptime(str(alert.date), "%m-%d-%Y")
-        except Exception:
-            start_dt = None
-        if not start_dt:
-            continue
-
-        title = f"Policy Warning: {(alert.policy_number or '').strip()} requires attention".strip()
-        desc = f"Policy for {(alert.name or '').strip()} requires attention.".strip()
-
-        ev = CalendarEvent(
-            tenant_id=tenant_id,
-            title=title or "Policy Warning",
-            description=desc or None,
-            event_type="policy_warning",
-            start_date=start_dt,
-            end_date=start_dt + timedelta(hours=1),
-            all_day=False,
-            timezone="UTC",
-            location=None,
-            color="#465fff",
-            priority="high",
-            status="scheduled",
-            is_active=True,
-            owner_id=user_id,
-            created_by_id=user_id,
-            assigned_to_id=None,
-            case_data_id=None,
-            policy_id=pid,
-            agency_id=None,
-            reminder_before_minutes=1440,
-            reminder_sent=False,
-            reminder_sent_at=None,
-            visibility="private",
-            shared_with=[],
-            google_calendar_id=None,
-            google_calendar_synced=False,
-            google_calendar_synced_at=None,
-            meet_url=None,
-        )
-        db.add(ev)
-        created += 1
-
-    if created:
-        db.commit()
-    return PolicyWarningSyncResponse(created=created)
 
 
 # ---- Google Calendar endpoints ----

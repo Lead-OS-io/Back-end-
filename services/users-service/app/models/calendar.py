@@ -1,4 +1,4 @@
-"""CalendarEvent model (Desk)."""
+"""CalendarEvent model."""
 from datetime import datetime
 from typing import Optional, List
 import uuid
@@ -8,7 +8,7 @@ from sqlmodel import Field, SQLModel, JSON, Column, Text
 
 class CalendarEvent(SQLModel, table=True):
     """
-    Calendar events and reminders (Desk).
+    Calendar events and reminders.
 
     NOTE: This service is the only one that should read/write this table.
     """
@@ -17,7 +17,8 @@ class CalendarEvent(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
 
-    tenant_id: Optional[uuid.UUID] = Field(default=None, foreign_key="tenants.id", index=True)
+    # Tenant isolation (sin FK: la tabla tenants pertenece a tenant-service)
+    tenant_id: Optional[uuid.UUID] = Field(default=None, index=True)
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     modified_at: datetime = Field(default_factory=datetime.utcnow)
@@ -40,10 +41,6 @@ class CalendarEvent(SQLModel, table=True):
     owner_id: uuid.UUID = Field(foreign_key="users.id", index=True)
     created_by_id: uuid.UUID = Field(foreign_key="users.id", index=True)
     assigned_to_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
-
-    case_data_id: Optional[int] = Field(default=None, index=True)
-    policy_id: Optional[int] = Field(default=None, index=True)
-    agency_id: Optional[uuid.UUID] = Field(default=None, index=True)
 
     reminder_before_minutes: int = Field(default=15)
     reminder_sent: bool = Field(default=False)

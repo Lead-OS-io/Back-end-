@@ -8,7 +8,7 @@ from pydantic import BaseModel, EmailStr, Field
 # =============================================================================
 
 class UserRequestCreate(BaseModel):
-    request_type: str  # other_request, production_change, contract_change, terminations, as_earned, commission_change
+    request_type: str  # tipo libre, definido por el dominio consumidor
     data: Dict[str, Any]
     notes: Optional[str] = None
 
