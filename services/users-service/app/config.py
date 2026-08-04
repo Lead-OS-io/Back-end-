@@ -1,23 +1,23 @@
 """
 User service configuration
 """
-import os
-import re
-from pydantic_settings import BaseSettings
+from typing import Optional
+
 from pydantic import field_validator
 
-class Settings(BaseSettings):
+from shared.config.base import BaseServiceSettings
+
+
+class Settings(BaseServiceSettings):
     # App
-    APP_NAME: str = "users-service"
-    DEBUG: bool = False
-    HOST: str = os.getenv("HOST", "0.0.0.0")
-    PORT: int = int(os.getenv("PORT", "8005"))
-    
+    SERVICE_NAME: str = "users-service"
+    PORT: int = 8003
+
     # Database
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/monolith")
-    
+    DATABASE_URL: str = "postgresql+psycopg2://x:x@localhost:5432/users_db"
+
     # Security
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "")
+    SECRET_KEY: str = ""
     ALGORITHM: str = "HS256"
 
     @field_validator("SECRET_KEY")
@@ -28,24 +28,17 @@ class Settings(BaseSettings):
         return v
 
     # Inter-service
-    AUTH_SERVICE_URL: str = os.getenv("AUTH_SERVICE_URL", "http://auth-service:8001")
+    AUTH_SERVICE_URL: str = "http://auth-service:8001"
 
-    # Redis
-    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-    
-    # CORS
+    # CORS (lo aplica el gateway; se conserva por compat de config)
     CORS_ORIGINS: list = []
-    # Base domain + any tenant subdomain, plus local dev. Custom tenant
-    # domains (stored in tenant_domains) are not covered here.
     CORS_ORIGIN_REGEX: str = r"^https://([a-zA-Z0-9-]+\.)*airedesk\.com$|^http://localhost:3000$"
-    
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
-        extra = "ignore"
+
+    # Webhooks (Aria)
+    WEBHOOK_API_KEY: str = ""
+
+    # Google (Calendar)
+    GOOGLE_CREDENTIALS_JSON: Optional[str] = None
+
 
 settings = Settings()
-
-
-
-
