@@ -137,8 +137,11 @@ def test_update_tenant_admin(client, svc_headers, monkeypatch):
 
 # ---- Domains ----
 def test_create_subdomain(client, svc_headers, monkeypatch):
+    async def fake_create_subdomain(**kwargs):
+        return _StubDomain()
+
     monkeypatch.setattr("app.services.cloudflare.create_subdomain",
-                        lambda **kwargs: _StubDomain())
+                        fake_create_subdomain)
     resp = client.post(f"/api/tenants/{TENANT_ID}/domains/subdomain",
                        json={"subdomain": "app2"}, headers=svc_headers)
     assert resp.status_code == 200
@@ -146,8 +149,11 @@ def test_create_subdomain(client, svc_headers, monkeypatch):
 
 
 def test_create_custom_domain(client, svc_headers, monkeypatch):
+    async def fake_create_custom_domain(**kwargs):
+        return _StubDomain(domain="custom.io")
+
     monkeypatch.setattr("app.services.cloudflare.create_custom_domain",
-                        lambda **kwargs: _StubDomain(domain="custom.io"))
+                        fake_create_custom_domain)
     monkeypatch.setattr("app.services.cloudflare.get_verification_instructions",
                         lambda **kwargs: {
                             "domain": "custom.io", "status": "pending",
@@ -172,15 +178,19 @@ def test_list_domains(client, svc_headers, monkeypatch):
 
 
 def test_get_domain(client, svc_headers, monkeypatch):
-    monkeypatch.setattr("app.services.tenants.get_domain",
-                        lambda **kwargs: _StubDomain())
+    async def fake_get_domain(**kwargs):
+        return _StubDomain()
+
+    monkeypatch.setattr("app.services.tenants.get_domain", fake_get_domain)
     resp = client.get(f"/api/tenants/{TENANT_ID}/domains/{uuid.uuid4()}", headers=svc_headers)
     assert resp.status_code == 200
 
 
 def test_delete_domain_admin(client, svc_headers, monkeypatch):
-    monkeypatch.setattr("app.services.tenants.delete_domain",
-                        lambda **kwargs: None)
+    async def fake_delete_domain(**kwargs):
+        return True
+
+    monkeypatch.setattr("app.services.tenants.delete_domain", fake_delete_domain)
     resp = client.delete(f"/api/tenants/{TENANT_ID}/domains/{uuid.uuid4()}", headers=svc_headers)
     assert resp.status_code == 200
 
