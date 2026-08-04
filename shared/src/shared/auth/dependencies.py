@@ -7,10 +7,17 @@ from shared.utils.exceptions import AppError, ForbiddenError
 
 @dataclass(frozen=True)
 class Identity:
-    user_id: int
-    tenant_id: int
+    user_id: int | str
+    tenant_id: int | str
     role_id: int | None
     is_superuser: bool
+
+
+def _as_int_or_str(value: str) -> int | str:
+    try:
+        return int(value)
+    except ValueError:
+        return value
 
 
 def get_current_identity(request: Request) -> Identity:
@@ -18,8 +25,8 @@ def get_current_identity(request: Request) -> Identity:
     try:
         role_id_raw = headers.get("x-role-id")
         return Identity(
-            user_id=int(headers["x-user-id"]),
-            tenant_id=int(headers["x-tenant-id"]),
+            user_id=_as_int_or_str(headers["x-user-id"]),
+            tenant_id=_as_int_or_str(headers["x-tenant-id"]),
             role_id=int(role_id_raw) if role_id_raw else None,
             is_superuser=headers.get("x-is-superuser", "").lower() == "true",
         )

@@ -206,6 +206,21 @@ def test_validate_token_ok(client, svc_headers, monkeypatch):
 
 
 # ---- Google OAuth ----
+def _google_headers() -> dict:
+    from app.services.security import create_access_token
+    token = create_access_token(
+        user_id="11111111-1111-1111-1111-111111111111",
+        tenant_id="11111111-1111-1111-1111-111111111111",
+        email="u@x.com", platform="desk")
+    return {
+        "Authorization": f"Bearer {token}",
+        "X-Tenant-Id": "11111111-1111-1111-1111-111111111111",
+    }
+
+
+GOOGLE_HEADERS = _google_headers()
+
+
 def test_google_check_config(client, svc_headers, monkeypatch):
     monkeypatch.setattr("app.services.google_oauth.check_config",
                         lambda **kwargs: {"configured": True})
@@ -215,36 +230,40 @@ def test_google_check_config(client, svc_headers, monkeypatch):
 
 def test_google_status(client, svc_headers, monkeypatch):
     monkeypatch.setattr("app.services.google_oauth.get_status",
-                        lambda **kwargs: {"connected": False})
-    resp = client.get("/api/auth/google/status", headers=svc_headers)
+                        lambda **kwargs: {"authenticated": False, "google_account_email": ""})
+    resp = client.get("/api/auth/google/status",
+                      headers={**svc_headers, **GOOGLE_HEADERS})
     assert resp.status_code == 200
 
 
 def test_google_auth_url(client, svc_headers, monkeypatch):
     monkeypatch.setattr("app.services.google_oauth.get_auth_url",
-                        lambda **kwargs: {"auth_url": "https://accounts.google.com/o/oauth2/auth"})
-    resp = client.get("/api/auth/google/auth-url", headers=svc_headers)
+                        lambda **kwargs: {"url": "https://accounts.google.com/o/oauth2/auth"})
+    resp = client.get("/api/auth/google/auth-url",
+                      headers={**svc_headers, **GOOGLE_HEADERS})
     assert resp.status_code == 200
 
 
 def test_google_callback(client, svc_headers, monkeypatch):
     monkeypatch.setattr("app.services.google_oauth.handle_callback",
-                        lambda **kwargs: {"status": "ok"})
-    resp = client.get("/api/auth/google/callback?code=abc", headers=svc_headers)
+                        lambda **kwargs: {"kind": "success", "html": "<html>ok</html>"})
+    resp = client.get("/api/auth/google/callback?code=abc&state=xyz", headers=svc_headers)
     assert resp.status_code == 200
 
 
 def test_google_disconnect(client, svc_headers, monkeypatch):
     monkeypatch.setattr("app.services.google_oauth.disconnect",
-                        lambda **kwargs: {"message": "disconnected"})
-    resp = client.post("/api/auth/google/disconnect", headers=svc_headers)
+                        lambda **kwargs: {"success": True})
+    resp = client.post("/api/auth/google/disconnect",
+                       headers={**svc_headers, **GOOGLE_HEADERS})
     assert resp.status_code == 200
 
 
 def test_google_access_token(client, svc_headers, monkeypatch):
     monkeypatch.setattr("app.services.google_oauth.get_access_token",
-                        lambda **kwargs: {"access_token": "gat"})
-    resp = client.get("/api/auth/google/access-token", headers=svc_headers)
+                        lambda **kwargs: {"access_token": "gat", "google_account_email": ""})
+    resp = client.get("/api/auth/google/access-token",
+                      headers={**svc_headers, **GOOGLE_HEADERS})
     assert resp.status_code == 200
 
 
