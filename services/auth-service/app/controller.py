@@ -30,7 +30,6 @@ from shared.utils.exceptions import AppError
 def login(*, data: LoginRequest, db: Session, settings) -> LoginResponse:
     tokens = auth_service.login_user(
         db=db, settings=settings, email=data.email, password=data.password,
-        platform=(data.platform or "desk").lower(),
     )
     user = tokens.pop("user")
     tokens["access"] = tokens["access_token"]
@@ -41,10 +40,8 @@ def login(*, data: LoginRequest, db: Session, settings) -> LoginResponse:
 
 
 def token(*, form: OAuth2PasswordRequestForm, db: Session, settings) -> TokenResponse:
-    platform = form.platform if hasattr(form, "platform") else "desk"
     tokens = auth_service.login_user(
         db=db, settings=settings, email=form.username, password=form.password,
-        platform=str(platform or "desk").lower(),
     )
     tokens.pop("user", None)
     return TokenResponse(**tokens)
@@ -69,7 +66,6 @@ def register(*, data: UserRegister, db: Session, settings,
 def refresh(*, data: RefreshRequest, db: Session, settings) -> TokenResponse:
     tokens = auth_service.refresh_user_tokens(
         db=db, settings=settings, refresh_token=data.refresh_token,
-        platform=(data.platform or "desk").lower(),
     )
     tokens.pop("user", None)
     return TokenResponse(**tokens)

@@ -50,7 +50,7 @@ def test_token_returns_tokens(client, svc_headers, monkeypatch):
     monkeypatch.setattr("app.services.auth.login_user",
                         lambda **kwargs: dict(TOKENS))
     resp = client.post("/api/auth/token",
-                       data={"username": "u@x.com", "password": "pw", "platform": "desk"},
+                       data={"username": "u@x.com", "password": "pw"},
                        headers=svc_headers)
     assert resp.status_code == 200
     assert resp.json()["access_token"] == "a"
@@ -61,7 +61,7 @@ def test_login_returns_tokens(client, svc_headers, monkeypatch):
     monkeypatch.setattr("app.services.auth.login_user",
                         lambda **kwargs: dict(FULL_LOGIN))
     resp = client.post("/api/auth/login",
-                       json={"email": "u@x.com", "password": "pw", "platform": "desk"},
+                       json={"email": "u@x.com", "password": "pw"},
                        headers=svc_headers)
     assert resp.status_code == 200
     assert resp.json()["user"]["email"] == "u@x.com"
@@ -73,7 +73,7 @@ def test_login_wrong_credentials_is_401(client, svc_headers, monkeypatch):
 
     monkeypatch.setattr("app.services.auth.login_user", boom)
     resp = client.post("/api/auth/login",
-                       json={"email": "u@x.com", "password": "bad", "platform": "desk"},
+                       json={"email": "u@x.com", "password": "bad"},
                        headers=svc_headers)
     assert resp.status_code == 401
 
@@ -106,7 +106,7 @@ def test_refresh_returns_tokens(client, svc_headers, monkeypatch):
     monkeypatch.setattr("app.services.auth.refresh_user_tokens",
                         lambda **kwargs: dict(TOKENS))
     resp = client.post("/api/auth/refresh",
-                       json={"refresh_token": "tok", "platform": "desk"},
+                       json={"refresh_token": "tok"},
                        headers=svc_headers)
     assert resp.status_code == 200
     assert resp.json()["refresh_token"] == "r"
@@ -211,7 +211,7 @@ def _google_headers() -> dict:
     token = create_access_token(
         user_id="11111111-1111-1111-1111-111111111111",
         tenant_id="11111111-1111-1111-1111-111111111111",
-        email="u@x.com", platform="desk")
+        email="u@x.com")
     return {
         "Authorization": f"Bearer {token}",
         "X-Tenant-Id": "11111111-1111-1111-1111-111111111111",

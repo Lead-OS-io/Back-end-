@@ -10,19 +10,11 @@ class LoginRequest(BaseModel):
     """Login request schema."""
     email: EmailStr
     password: str = Field(..., min_length=1)
-    platform: Optional[str] = Field(
-        default=None,
-        description="desk | hub | nest (obligatorio para firmar con la clave correcta)",
-    )
 
 
 class RefreshTokenRequest(BaseModel):
     """Refresh token request."""
     refresh_token: str
-    platform: Optional[str] = Field(
-        default=None,
-        description="desk | hub | nest (obligatorio si no viene en el header X-Platform)",
-    )
 
 
 class RefreshRequest(RefreshTokenRequest):

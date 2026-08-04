@@ -1,12 +1,9 @@
 """
 Auth Service Configuration.
 """
-from typing import List, Optional
-from pydantic_settings import BaseSettings
+from typing import Optional
+
 from pydantic import field_validator
-from functools import lru_cache
-import os
-import re
 
 from shared.config.base import BaseServiceSettings
 
@@ -26,39 +23,24 @@ class Settings(BaseServiceSettings):
     # Database
     DATABASE_SCHEMA: str = "public"
 
-    # Internal/service JWT (refresh tokens, service tokens)
+    # JWT Settings (clave única: SECRET_KEY)
     SECRET_KEY: str = ""
-
-    # JWT Settings
-    DESK_SECRET_KEY: str = ""
-    HUB_SECRET_KEY: str = ""
-    NEST_SECRET_KEY: str = ""
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 40  # 40 minutes
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # Encryption (Fernet key for password encryption)
+    # Encryption (Fernet key para passwords y refresh tokens de terceros)
     FERNET_KEY: str = ""
-    # Legacy/alternative keys (para decrypt de passwords existentes)
-    PASSWORD_FERNET_KEY: str = ""
-    DESK_FERNET_KEY: str = ""
-    HUB_FERNET_KEY: str = ""
-    NEST_FERNET_KEY: str = ""
 
     # Rate limiting
     RATE_LIMIT_LOGIN: int = 5  # requests per minute
     RATE_LIMIT_RESET: int = 3  # requests per hour
-
-    # CORS (lo aplica el gateway; se conserva por compat de config)
-    CORS_ORIGINS: List[str] = []
-    CORS_ORIGIN_REGEX: str = r"^https://([a-zA-Z0-9-]+\.)*airedesk\.com$|^http://localhost:3000$"
 
     # External services
     TENANT_SERVICE_URL: str = "http://tenant-service:8002"
 
     # Frontend URL for password reset links
     FRONTEND_URL: str = "http://localhost:3000"
-    ARIA_TENANT_SLUG: str = "aria"
 
     # Google OAuth client credentials JSON (web/installed)
     GOOGLE_CREDENTIALS_JSON: Optional[str] = None

@@ -25,45 +25,25 @@ pwd_context = CryptContext(
 
 class Encryption:
     """Fernet encryption for sensitive data."""
-    
+
     _fernets: Optional[list[Fernet]] = None
-    
+
     @classmethod
     def _get_fernets(cls) -> list[Fernet]:
         if cls._fernets is not None:
             return cls._fernets
 
-        # Preferimos la key explícita para passwords si existe; fallback a FERNET_KEY.
-        # Incluimos keys de otros servicios (DESK, HUB, NEST) para compatibilidad con legacy/migraciones.
-        keys_raw = [
-            settings.PASSWORD_FERNET_KEY,
-            settings.FERNET_KEY,
-            settings.DESK_FERNET_KEY,
-            settings.HUB_FERNET_KEY,
-            settings.NEST_FERNET_KEY
-        ]
-        
-        # Filtrar vacías y duplicados manteniendo el orden
-        seen = set()
-        keys = []
-        for k in keys_raw:
-            k_clean = (k or "").strip()
-            if k_clean and k_clean not in seen:
-                keys.append(k_clean)
-                seen.add(k_clean)
-
+        key = (settings.FERNET_KEY or "").strip()
         cls._fernets = []
-        for key in keys:
+        if key:
             try:
                 cls._fernets.append(Fernet(key.encode()))
             except Exception as e:
-                # Log error but continue with other keys
-                from app.config import settings as app_settings
-                if app_settings.DEBUG:
+                if settings.DEBUG:
                     print(f"Invalid Fernet key in auth-service: {e}")
-        
+
         return cls._fernets
-    
+
     @classmethod
     def encrypt(cls, data: str) -> str:
         """Encrypt a string. Fails hard rather than silently storing the
@@ -72,11 +52,9 @@ class Encryption:
         fernets = cls._get_fernets()
         if not fernets:
             raise RuntimeError(
-                "No Fernet key configured (FERNET_KEY/PASSWORD_FERNET_KEY/"
-                "DESK_FERNET_KEY/HUB_FERNET_KEY/NEST_FERNET_KEY) - refusing "
+                "No Fernet key configured (FERNET_KEY) - refusing "
                 "to store this value unencrypted."
             )
-        # Encriptamos con la primera (preferida)
         return fernets[0].encrypt(data.encode()).decode()
 
     @classmethod
@@ -85,8 +63,7 @@ class Encryption:
         fernets = cls._get_fernets()
         if not fernets:
             raise RuntimeError(
-                "No Fernet key configured (FERNET_KEY/PASSWORD_FERNET_KEY/"
-                "DESK_FERNET_KEY/HUB_FERNET_KEY/NEST_FERNET_KEY) - cannot decrypt."
+                "No Fernet key configured (FERNET_KEY) - cannot decrypt."
             )
         for f in fernets:
             try:
@@ -158,23 +135,10 @@ def get_password_hash(password: str) -> str:
     return Encryption.encrypt(bcrypt_hash)
 
 
-def _get_platform_key(platform: str) -> str:
-    key_map = {
-        "desk": settings.DESK_SECRET_KEY or settings.SECRET_KEY,
-        "hub": settings.HUB_SECRET_KEY or settings.SECRET_KEY,
-        "nest": settings.NEST_SECRET_KEY or settings.SECRET_KEY,
-    }
-    key = key_map.get(platform)
-    if not key:
-        return settings.SECRET_KEY
-    return key
-
-
 def create_access_token(
     user_id: str,
     tenant_id: str,
     email: str,
-    platform: str,
     role_id: Optional[int] = None,
     is_staff: bool = False,
     is_superuser: bool = False,
@@ -182,35 +146,27 @@ def create_access_token(
     last_name: Optional[str] = None,
     expires_delta: Optional[timedelta] = None,
 ) -> str:
-    """Create JWT access token firmado con la clave específica de la plataforma."""
-    if not platform:
-        # Check platform but we will use SECRET_KEY anyway
-        pass 
-
-    platform_norm = str(platform).lower() if platform else "desk"
-    key = _get_platform_key(platform_norm)
-
+    """Create JWT access token firmado con SECRET_KEY."""
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
         expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    
+
     payload = {
         "sub": user_id,
         "tenant_id": tenant_id,
         "email": email,
-        "role_id": role_id if role_id is not None else None,  # Explicitly include None
-        "is_staff": bool(is_staff),  # Ensure boolean
-        "is_superuser": bool(is_superuser),  # Ensure boolean
+        "role_id": role_id if role_id is not None else None,
+        "is_staff": bool(is_staff),
+        "is_superuser": bool(is_superuser),
         "first_name": first_name or "",
         "last_name": last_name or "",
-        "platform": platform_norm,
         "exp": expire,
         "iat": datetime.utcnow(),
         "type": "access",
     }
-    
-    return jwt.encode(payload, key, algorithm=settings.ALGORITHM)
+
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
 def create_service_token(
@@ -245,35 +201,10 @@ def create_refresh_token(user_id: str, tenant_id: str) -> str:
 
 
 def decode_token(token: str) -> Dict[str, Any]:
-    """
-    Decode and validate JWT token usando la clave específica de la plataforma.
-    Sin fallbacks: requiere que el token traiga claim 'platform' (desk|hub|nest).
-    """
+    """Decode and validate JWT token firmado con SECRET_KEY."""
     try:
-        claims = jwt.get_unverified_claims(token)
-    except Exception as e:
-        raise ValueError(f"Invalid token (cannot read claims): {e}")
-
-    platform = claims.get("platform") or claims.get("system_origin")
-    if not platform:
-        # Fallback for legacy tokens (default to 'desk')
-        platform = "desk"
-
-    platform = str(platform).lower()
-    key_map = {
-        "desk": settings.DESK_SECRET_KEY or settings.SECRET_KEY,
-        "hub": settings.HUB_SECRET_KEY or settings.SECRET_KEY,
-        "nest": settings.NEST_SECRET_KEY or settings.SECRET_KEY,
-    }
-    key = key_map.get(platform)
-    if not key:
-        key = settings.SECRET_KEY
-
-    try:
-        return jwt.decode(token, key, algorithms=[settings.ALGORITHM])
+        return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
     except JWTError:
-        # No fallback to SECRET_KEY: refresh/service tokens are signed with it,
-        # so accepting it here would collapse platform key separation.
         raise ValueError("Invalid token (signature failed)")
 
 

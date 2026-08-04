@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 def login_user(*, db: Session, settings: Settings, email: str, password: str,
-               platform: str = "desk", ip_address: Optional[str] = None,
+               ip_address: Optional[str] = None,
                user_agent: Optional[str] = None) -> dict:
     """Authenticate and return tokens + user info (TokenResponse/LoginResponse shape)."""
     user = _authenticate(db, email, password)
@@ -44,7 +44,7 @@ def login_user(*, db: Session, settings: Settings, email: str, password: str,
                            success=False, failure_reason="inactive_user", user_agent=user_agent)
         raise AppError(403, "User account is inactive")
 
-    tokens = _create_tokens(db, settings, user, platform=platform,
+    tokens = _create_tokens(db, settings, user,
                             ip_address=ip_address, user_agent=user_agent)
     user.last_login = datetime.utcnow()
     db.add(user)
@@ -86,7 +86,7 @@ def register_user(*, db: Session, settings: Settings, data: UserRegister,
 
 
 def refresh_user_tokens(*, db: Session, settings: Settings, refresh_token: str,
-                        platform: str = "desk", ip_address: Optional[str] = None,
+                        ip_address: Optional[str] = None,
                         user_agent: Optional[str] = None) -> dict:
     """Exchange a valid, unrevoked refresh token for a new access/refresh pair."""
     try:
@@ -111,7 +111,7 @@ def refresh_user_tokens(*, db: Session, settings: Settings, refresh_token: str,
     db.add(stored)
     db.commit()
 
-    tokens = _create_tokens(db, settings, user, platform=platform,
+    tokens = _create_tokens(db, settings, user,
                             ip_address=ip_address, user_agent=user_agent)
     tokens["user_id"] = str(user.id)
     tokens["email"] = user.email
@@ -243,14 +243,13 @@ def _authenticate(db: Session, email: str, password: str) -> Optional[User]:
     return user
 
 
-def _create_tokens(db: Session, settings: Settings, user: User, *, platform: str,
+def _create_tokens(db: Session, settings: Settings, user: User, *,
                    ip_address: Optional[str], user_agent: Optional[str]) -> dict:
     tenant_id = str(getattr(user, "tenant_id", "") or "")
     access_token = create_access_token(
         user_id=str(user.id),
         tenant_id=tenant_id,
         email=user.email,
-        platform=platform,
         role_id=user.role_id,
         is_staff=user.is_staff,
         is_superuser=user.is_superuser,

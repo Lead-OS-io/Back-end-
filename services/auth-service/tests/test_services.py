@@ -14,20 +14,22 @@ def test_password_hash_roundtrip():
     assert not security.verify_password("wrong", hashed)
 
 
-def test_access_token_roundtrip_desk_platform():
+def test_access_token_roundtrip():
     token = security.create_access_token(
-        user_id="1", tenant_id="1", email="u@x.com", platform="desk")
+        user_id="1", tenant_id="1", email="u@x.com")
     claims = security.decode_token(token)
     assert claims["sub"] == "1"
     assert claims["type"] == "access"
-    assert claims["platform"] == "desk"
+    assert "platform" not in claims
 
 
-def test_decode_token_rejects_wrong_platform_key():
-    # Sin claves de plataforma configuradas, SECRET_KEY firma todo (dev/test).
+def test_decode_token_rejects_wrong_key(monkeypatch):
     token = security.create_access_token(
-        user_id="1", tenant_id="1", email="u@x.com", platform="desk")
-    assert security.decode_token(token)["sub"] == "1"
+        user_id="1", tenant_id="1", email="u@x.com")
+    monkeypatch.setattr("app.services.security.settings.SECRET_KEY", "other-key", raising=False)
+    import pytest
+    with pytest.raises(ValueError):
+        security.decode_token(token)
 
 
 def test_encryption_fernet_roundtrip():

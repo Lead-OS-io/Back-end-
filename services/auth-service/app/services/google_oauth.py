@@ -276,11 +276,11 @@ def _html_success(email: str) -> str:
     safe_email = (email or "").replace("<", "&lt;").replace(">", "&gt;")
     return f"""<!DOCTYPE html>
 <html>
-<head><title>Google Account Connected - ARIADESK</title></head>
+<head><title>Google Account Connected - leados</title></head>
 <body>
 <div class="container">
     <h1 class="title">Google Account Connected</h1>
-    <p class="message">Your Google account has been successfully connected to ARIADESK.</p>
+    <p class="message">Your Google account has been successfully connected to leados.</p>
     <div class="account-info"><div class="account-email">Connected: {safe_email or 'your account'}</div></div>
     <button class="button" onclick="closeWindow()">Continue</button>
 </div>
