@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from fastapi import Request
 
-from shared.utils.exceptions import AppError
+from shared.utils.exceptions import AppError, ForbiddenError
 
 
 @dataclass(frozen=True)
@@ -25,3 +25,9 @@ def get_current_identity(request: Request) -> Identity:
         )
     except (KeyError, ValueError):
         raise AppError(401, "missing or malformed identity headers")
+
+
+def require_admin(identity: Identity) -> Identity:
+    if not identity.is_superuser and identity.role_id != 1:
+        raise ForbiddenError("admin required")
+    return identity
