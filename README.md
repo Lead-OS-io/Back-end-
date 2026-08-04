@@ -83,7 +83,7 @@ docker build -f services/<svc>/Dockerfile -t registry/lead-os-<svc>:<tag> .
 
 Compartidas: `SERVICE_NAME`, `DATABASE_URL` (por servicio: `auth_db`/`tenant_db`/`users_db`/`files_db`), `REDIS_URL`, `INTER_SERVICE_SECRET`, `ENVIRONMENT`, `DEBUG`, `PORT`, `HOST`.
 
-**Deploy**: correr `alembic upgrade head` como job one-off ANTES del rollout de cada servicio. Solo el gateway se expone al exterior. Rotar `INTER_SERVICE_SECRET` y las claves JWT con cuidado (invalidan tokens en tránsito).
+**Deploy**: cada servicio con DB corre `alembic upgrade head` automáticamente al arrancar el contenedor (idempotente: solo aplica migraciones pendientes; si falla, el contenedor no arranca — fail-fast). No hace falta job de migraciones manual. Con varias réplicas por servicio, desplegar primero una sola (las migraciones compiten al arrancar simultáneo). Cada servicio recibe su propio conjunto de variables de entorno (el `.env` raíz es solo para desarrollo local); las compartidas (`INTER_SERVICE_SECRET`, `SECRET_KEY`, `REDIS_URL`) deben tener el mismo valor en todos los servicios que las usan. Solo el gateway se expone al exterior; los servicios viven en la red privada. Rotar `INTER_SERVICE_SECRET` y las claves JWT con cuidado (invalidan tokens en tránsito).
 
 **Nota**: no se usa Supabase — Postgres propio con una base por servicio.
 

@@ -19,4 +19,5 @@ USER app
 EXPOSE 8003
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
   CMD python -c "import urllib.request;urllib.request.urlopen('http://localhost:8003/health')" || exit 1
-CMD ["/app/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8003"]
+# Migraciones automáticas al arrancar (idempotente; fail-fast si fallan)
+CMD ["sh", "-c", "/app/.venv/bin/alembic upgrade head && exec /app/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8003"]
