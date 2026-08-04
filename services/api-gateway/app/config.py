@@ -28,6 +28,7 @@ class Settings(BaseServiceSettings):
             "/api/tenants": self.TENANT_SERVICE_URL,
             "/api/files": self.FILES_SERVICE_URL,
             "/api/saas/webhooks": self.USERS_SERVICE_URL,
+            "/api/resolve": self.TENANT_SERVICE_URL,
         }
 
     @property
