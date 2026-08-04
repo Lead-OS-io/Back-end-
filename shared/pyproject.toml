@@ -1,0 +1,31 @@
+[project]
+name = "lead-os-shared"
+version = "0.1.0"
+description = "Código compartido de los microservicios lead_os"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi==0.104.1",
+    "sqlmodel==0.0.14",
+    "SQLAlchemy>=2.0,<2.1",
+    "psycopg2-binary==2.9.11",
+    "alembic==1.12.1",
+    "pydantic==2.9.2",
+    "pydantic-settings==2.12.0",
+    "redis==5.0.1",
+    "httpx==0.27.0",
+    "pyjwt==2.9.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==7.4.3",
+    "pytest-asyncio==0.21.1",
+    "fakeredis==2.20.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/shared"]

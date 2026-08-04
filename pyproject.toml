@@ -1,0 +1,12 @@
+[project]
+name = "lead-os"
+version = "0.1.0"
+description = "lead_os monorepo - tooling raíz (sin aplicación)"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest==7.4.3",
+    "pytest-asyncio==0.21.1",
+]
