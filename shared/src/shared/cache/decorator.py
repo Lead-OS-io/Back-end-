@@ -3,6 +3,8 @@ import json
 
 import redis
 
+CACHE_KEY_PREFIX = "leados"
+
 
 def _build_key(prefix: str, key_parts: tuple[str, ...], kwargs: dict) -> str:
     if key_parts:
@@ -10,7 +12,7 @@ def _build_key(prefix: str, key_parts: tuple[str, ...], kwargs: dict) -> str:
     else:
         parts = [f"{k}={v}" for k, v in sorted(kwargs.items()) if k != "redis_client"]
     suffix = ":".join(parts)
-    return f"ariadesk:shared:{prefix}:{suffix}" if suffix else f"ariadesk:shared:{prefix}"
+    return f"{CACHE_KEY_PREFIX}:shared:{prefix}:{suffix}" if suffix else f"{CACHE_KEY_PREFIX}:shared:{prefix}"
 
 
 def cached(*, prefix: str, ttl: int = 300, key_parts: tuple[str, ...] = ()):

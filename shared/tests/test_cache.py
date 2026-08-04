@@ -24,9 +24,9 @@ def test_cached_stores_and_reuses_result():
 
 def test_invalidate_pattern_deletes_matching_keys():
     r = _redis()
-    r.set("ariadesk:shared:widgets:1", "x")
-    r.set("ariadesk:shared:widgets:2", "y")
-    r.set("ariadesk:shared:other:1", "z")
-    deleted = invalidate_pattern(r, "ariadesk:shared:widgets:*")
+    r.set("leados:shared:widgets:1", "x")
+    r.set("leados:shared:widgets:2", "y")
+    r.set("leados:shared:other:1", "z")
+    deleted = invalidate_pattern(r, "leados:shared:widgets:*")
     assert deleted == 2
-    assert r.get("ariadesk:shared:other:1") == "z"
+    assert r.get("leados:shared:other:1") == "z"
