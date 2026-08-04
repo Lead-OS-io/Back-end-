@@ -288,12 +288,14 @@ def _log_login_attempt(db: Session, *, email: str, ip_address: str, success: boo
 
 
 def _resolve_tenant_id(email: str, settings: Settings) -> str:
-    """Resolve tenant_id via tenant-service using user email."""
+    """Resolve tenant_id via tenant-service using user email (firmado con service-token)."""
     if not email:
         raise AppError(400, "Email required to resolve tenant")
     url = f"{settings.TENANT_SERVICE_URL}/api/resolve/email"
     try:
-        with httpx.Client(timeout=5.0) as client:
+        from shared.auth.client import ServiceHttpClient
+        with ServiceHttpClient(secret=settings.INTER_SERVICE_SECRET,
+                               issuer="auth-service", timeout=5.0) as client:
             resp = client.get(url, params={"email": email})
             if resp.status_code == 404:
                 raise AppError(404, "Tenant not found for user email")
