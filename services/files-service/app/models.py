@@ -19,7 +19,7 @@ class File(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     
     # Tenant isolation
-    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", nullable=False, index=True)
+    tenant_id: uuid.UUID = Field(nullable=False, index=True)
     
     # File info
     filename: str = Field(max_length=255, nullable=False)
@@ -31,7 +31,7 @@ class File(SQLModel, table=True):
     size: int = Field(nullable=False)  # Size in bytes
     
     # Upload info
-    uploaded_by_id: uuid.UUID = Field(foreign_key="users.id", nullable=False)
+    uploaded_by_id: uuid.UUID = Field(nullable=False)
     
     # Optional metadata
     description: Optional[str] = Field(default=None, max_length=500)
