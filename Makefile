@@ -13,8 +13,12 @@ ALL_PROFILES := $(subst $(SPACE),$(COMMA),$(ALL_SERVICES))
 
 .PHONY: up down prune
 
-up:      ## Levanta el stack (todos los servicios menos SKIP_SERVICES)
-	COMPOSE_PROFILES=$(PROFILES) docker compose up --build -d
+.env:
+	@echo "Creando .env desde .env.example (valores de desarrollo)"
+	@cp .env.example .env
+
+up: .env  ## Levanta el stack (todos los servicios menos SKIP_SERVICES)
+	COMPOSE_PROFILES=$(PROFILES) docker compose up --build 
 	COMPOSE_PROFILES=$(PROFILES) docker compose ps
 
 down:    ## Apaga todos los contenedores
