@@ -16,7 +16,7 @@ cliente ──► api-gateway:8000 (único puerto publicado)
                      └── Redis (cache + eventos) ── Postgres (compartido)
 ```
 
-- **(a) API gateway (FastAPI, `services/api-gateway`)**: valida el JWT de usuario (selección de clave por `platform` desk|hub|nest), inyecta `X-Service-Token` (JWT de 60s firmado con `INTER_SERVICE_SECRET`) + headers de identidad (`X-User-Id`, `X-Tenant-Id`, `X-Role-Id`, `X-Is-Superuser`), rate limit por IP (fixed window por minuto), proxy con retry para GET/HEAD y sirve `/media`/`/tutorials` localmente con soporte HTTP Range.
+- **(a) API gateway (FastAPI, `services/api-gateway`)**: valida el JWT de usuario (firmado con `SECRET_KEY` única por auth-service), inyecta `X-Service-Token` (JWT de 60s firmado con `INTER_SERVICE_SECRET`) + headers de identidad (`X-User-Id`, `X-Tenant-Id`, `X-Role-Id`, `X-Is-Superuser`), rate limit por IP (fixed window por minuto), proxy con retry para GET/HEAD y sirve `/media`/`/tutorials` localmente con soporte HTTP Range.
 - **(b) Enforcement**: todo request sin `X-Service-Token` válido recibe 401 (middleware global `ServiceTokenMiddleware` en cada servicio, exento solo `/health`). Los servicios no publican puertos al host: solo se comunican por la red interna de Docker.
 - **(c) `shared/`** (`lead-os-shared`, paquete pip instalable como path dependency editable): `config` (`BaseServiceSettings`), `db` (factories de engine/sesión, `get_db`, `readonly_dependency` para cross-reads), `alembic` (patrón único de `env.py`), `auth` (`ServiceHttpClient` que firma cada request, middleware, `Identity`/`get_current_identity`/`require_admin`), `events` (`EventEnvelope`, `EventBus`, `Consumer` con DLQ), `cache` (`cached`, `invalidate_pattern`), `utils` (logging, excepciones `AppError`/`NotFoundError`/`ConflictError`/`ForbiddenError`).
 - **(d) Datos**: una base por servicio (misma instancia Postgres en dev). Cross-reads con rol `readonly` (ver `infra/postgres/init.sql`) + `readonly_dependency`. Migraciones por servicio con el patrón compartido `shared.alembic` (`migrations/env.py` de 4 líneas).
@@ -75,10 +75,10 @@ docker build -f services/<svc>/Dockerfile -t registry/lead-os-<svc>:<tag> .
 
 | Servicio | Variables requeridas (además de las compartidas) |
 |---|---|
-| api-gateway | `SECRET_KEY`, `DESK_SECRET_KEY`/`HUB_SECRET_KEY`/`NEST_SECRET_KEY` (opcionales), `RATE_LIMIT_PER_MINUTE`, `FRONTEND_URL`, `MEDIA_ROOT` |
+| api-gateway | `SECRET_KEY`, `RATE_LIMIT_PER_MINUTE`, `FRONTEND_URL`, `MEDIA_ROOT`, `CORS_ORIGIN_REGEX` (opcional) |
 | auth-service | `SECRET_KEY`, `FERNET_KEY` (obligatoria: hashes y refresh tokens de Google se cifran), `GOOGLE_CREDENTIALS_JSON` (opcional), `TENANT_SERVICE_URL` |
 | tenant-service | `SECRET_KEY`, `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ZONE_ID`/`CLOUDFLARE_ACCOUNT_ID` (opcionales, sin ellos el DNS se mockea), `BASE_DOMAIN`, `CNAME_TARGET` |
-| users-service | `SECRET_KEY`, `WEBHOOK_API_KEY` (webhook Aria), `GOOGLE_CREDENTIALS_JSON` (opcional), `AUTH_SERVICE_URL` |
+| users-service | `SECRET_KEY`, `GOOGLE_CREDENTIALS_JSON` (opcional), `AUTH_SERVICE_URL` |
 | files-service | `SECRET_KEY`, `STORAGE_PATH`, `MAX_FILE_SIZE`, `ALLOWED_EXTENSIONS` |
 
 Compartidas: `SERVICE_NAME`, `DATABASE_URL` (por servicio: `auth_db`/`tenant_db`/`users_db`/`files_db`), `REDIS_URL`, `INTER_SERVICE_SECRET`, `ENVIRONMENT`, `DEBUG`, `PORT`, `HOST`.
