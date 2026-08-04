@@ -2,8 +2,7 @@
 import uuid
 from datetime import datetime
 
-USER_ID = uuid.uuid4()
-TENANT_ID = uuid.uuid4()
+from tests import TENANT_ID, USER_ID
 
 
 class _StubUser:
@@ -126,6 +125,7 @@ def test_health_ok(client):
 
 # ---- CRUD users ----
 def test_create_user(client, svc_headers, monkeypatch):
+    monkeypatch.setattr("app.services.users.get_user_by_email", lambda **kwargs: None)
     monkeypatch.setattr("app.services.users.create_user", lambda **kwargs: _StubUser())
     resp = client.post("/api/users", json=_create_payload(), headers=svc_headers)
     assert resp.status_code == 201
@@ -285,7 +285,8 @@ def test_update_calendar_event(client, svc_headers, monkeypatch):
 
 def test_delete_calendar_event(client, svc_headers, monkeypatch):
     monkeypatch.setattr("app.services.calendar.get_event", lambda **kwargs: _StubCalendarEvent())
-    monkeypatch.setattr("app.services.calendar.delete_event", lambda **kwargs: None)
+    monkeypatch.setattr("app.services.calendar.delete_event",
+                        lambda **kwargs: {"message": "Calendar event deleted successfully"})
     resp = client.delete("/api/calendar/1", headers=svc_headers)
     assert resp.status_code == 200
 
@@ -340,12 +341,11 @@ def test_google_calendar_delete(client, svc_headers, monkeypatch):
     assert resp.status_code == 200
 
 
-def test_google_calendar_create_event(client, svc_headers, monkeypatch):
-    monkeypatch.setattr("app.services.calendar.create_google_event",
-                        lambda **kwargs: {"google_calendar_id": "g1"})
+def test_google_calendar_create_event(client, svc_headers):
+    # Stub heredado: crear eventos Google se hace via /api/calendar (local).
     resp = client.post("/api/users/google/calendar/event", json={"title": "E"},
                        headers=svc_headers)
-    assert resp.status_code == 201
+    assert resp.status_code == 410
 
 
 # ---- Enforcement ----

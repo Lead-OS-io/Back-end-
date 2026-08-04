@@ -20,6 +20,7 @@ dependencies = [
     "google-auth-httplib2==0.1.1",
     "googleapis-common-protos>=1.56.2",
     "protobuf>=3.19.5",
+    "email-validator==2.2.0",
     "lead-os-shared",
 ]
 

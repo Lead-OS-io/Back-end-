@@ -5,7 +5,7 @@ import threading
 from fastapi import FastAPI
 
 from app.config import Settings
-from app.events import HANDLERS
+from app.events import build_handlers
 from app.router import router
 from shared.cache.client import create_redis
 from shared.auth.middleware import ServiceTokenMiddleware
@@ -16,7 +16,7 @@ from shared.utils.exceptions import register_exception_handlers
 from shared.utils.logging import setup_logging
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, *, consumer_block_ms: int = 5000) -> FastAPI:
     settings = settings or Settings()
     setup_logging(settings.SERVICE_NAME, "DEBUG" if settings.DEBUG else "INFO")
 
@@ -33,7 +33,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             domain="auth",
             group="users-service",
             consumer_name=f"users-service-{settings.SERVICE_NAME}",
-            handlers=HANDLERS,
+            handlers=build_handlers(app.state.session_factory),
+            block_ms=consumer_block_ms,
         )
         thread = threading.Thread(target=consumer.run_forever, daemon=True)
         thread.start()

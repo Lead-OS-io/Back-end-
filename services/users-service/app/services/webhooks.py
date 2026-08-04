@@ -1,22 +1,26 @@
+"""
+Aria webhook handling (users-service).
+
+Ruta pública (via gateway con service-token); la autenticación del webhook
+es X-API-Key o Authorization Bearer contra WEBHOOK_API_KEY (compare_digest).
+"""
 from datetime import datetime
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, Optional
 import hashlib
 import hmac
 import json
-import os
+import logging
 import secrets
 import uuid
-import logging
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
-from pydantic import BaseModel, EmailStr
 from sqlalchemy import text
 from sqlmodel import Session, select
 
-from app.database import get_db
 from app.models import User
+from app.schemas.webhook import AriaWebhookPayload
+from shared.utils.exceptions import AppError
 
-router = APIRouter()
+logger = logging.getLogger(__name__)
 
 ARIA_TENANT_SLUG = "aria"
 SUPPORTED_EVENTS = {
@@ -28,64 +32,55 @@ SUPPORTED_EVENTS = {
 }
 
 
-class AriaUserPayload(BaseModel):
-    id: Optional[int] = None
-    email: EmailStr
-    name: Optional[str] = None
-
-
-class AriaProductPayload(BaseModel):
-    id: Optional[str] = None
-    name: Optional[str] = None
-    type: Optional[str] = None
-
-
-class AriaAccessPayload(BaseModel):
-    id: Optional[str] = None
-    status: Optional[str] = None
-
-
-class AriaSubscriptionPayload(BaseModel):
-    id: Optional[str] = None
-    status: Optional[str] = None
-    billing_interval: Optional[str] = None
-    next_payment: Optional[datetime] = None
-    amount: Optional[float] = None
-    is_active: Optional[bool] = None
-
-
-class AriaWebhookPayload(BaseModel):
-    event_type: Literal[
-        "ACCESS_GRANTED",
-        "ACCESS_STATUS_CHANGED",
-        "PAYMENT_SUCCESS",
-        "PAYMENT_FAILED",
-        "SUBSCRIPTION_CANCELLED",
-    ]
-    timestamp: datetime
-    user: AriaUserPayload
-    product: Optional[AriaProductPayload] = None
-    access_id: Optional[str] = None
-    access: Optional[AriaAccessPayload] = None
-    subscription: Optional[AriaSubscriptionPayload] = None
-    subscription_id: Optional[str] = None
-
-
-def _resolve_expected_key() -> Optional[str]:
-    return os.getenv("WEBHOOK_API_KEY", None)
-
-
-def _verify_auth(x_api_key: Optional[str], authorization: Optional[str]) -> None:
-    expected = _resolve_expected_key()
-    if not expected:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Webhook key is not configured")
+def verify_webhook_auth(*, x_api_key: Optional[str], authorization: Optional[str],
+                        expected_key: str) -> None:
+    """Verifica las credenciales del webhook (constante-time)."""
+    if not expected_key:
+        raise AppError(500, "Webhook key is not configured")
     bearer = (authorization or "").strip()
-    expected_bearer = f"Bearer {expected}"
-    # Constant-time comparison to avoid timing side-channel on the API key
-    key_ok = hmac.compare_digest(x_api_key or "", expected)
+    expected_bearer = f"Bearer {expected_key}"
+    key_ok = hmac.compare_digest(x_api_key or "", expected_key)
     bearer_ok = hmac.compare_digest(bearer, expected_bearer)
     if not key_ok and not bearer_ok:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid webhook credentials")
+        raise AppError(401, "Invalid webhook credentials")
+
+
+def handle_aria_webhook(*, db: Session, settings, payload: AriaWebhookPayload,
+                        x_api_key: Optional[str] = None,
+                        authorization: Optional[str] = None) -> Dict[str, Any]:
+    """Procesa un webhook de Aria: dedupe, creación de usuario y sync de estado."""
+    verify_webhook_auth(x_api_key=x_api_key, authorization=authorization,
+                        expected_key=settings.WEBHOOK_API_KEY)
+    if payload.event_type not in SUPPORTED_EVENTS:
+        raise AppError(400, "Unsupported event type")
+
+    tenant_id = _resolve_aria_tenant_id(db)
+    is_new_event = _store_event_if_new(db, tenant_id, payload)
+    if not is_new_event:
+        db.commit()
+        return {"status": "ok", "processed": False, "reason": "duplicate_event"}
+
+    user = _find_user_by_email(db, tenant_id, payload.user.email)
+    user_id = user.id if user else None
+    created = False
+    if payload.event_type == "ACCESS_GRANTED" and user is None and _is_new_subscription_signup(payload):
+        created_user = _create_user_for_aria(db, tenant_id, payload)
+        user = created_user
+        user_id = created_user.id
+        created = True
+    _upsert_subscription_state(db, tenant_id, payload, user_id)
+    _sync_user_access_fields(db, user_id, payload)
+    db.commit()
+
+    if created and user_id:
+        _send_welcome_email(user)
+
+    return {
+        "status": "ok",
+        "processed": True,
+        "user_created": created,
+        "tenant_slug": ARIA_TENANT_SLUG,
+    }
 
 
 def _resolve_aria_tenant_id(session: Session) -> uuid.UUID:
@@ -94,7 +89,7 @@ def _resolve_aria_tenant_id(session: Session) -> uuid.UUID:
         {"slug": ARIA_TENANT_SLUG},
     ).first()
     if not row:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Aria tenant not found")
+        raise AppError(500, "Aria tenant not found")
     return uuid.UUID(str(row[0]))
 
 
@@ -125,12 +120,10 @@ def _is_new_subscription_signup(payload: AriaWebhookPayload) -> bool:
         return True
     if subscription_is_active is True:
         return True
-    
-    # If it's an ACCESS_GRANTED event and we have an active access_status, 
-    # we should allow creation even if subscription details are not fully synced yet.
+
     if payload.event_type == "ACCESS_GRANTED" and access_status == "active":
         return True
-        
+
     return False
 
 
@@ -154,14 +147,14 @@ def _find_user_by_email(session: Session, tenant_id: uuid.UUID, email: str) -> O
     ).first()
 
 
-logger = logging.getLogger(__name__)
-
-def _send_welcome_email(user: User):
+def _send_welcome_email(user: User) -> None:
     """Email delivery disabled: mailing-service was removed.
     Wire the new mailer here when it exists."""
     logger.warning(f"Welcome email for {user.email} NOT sent — no mailing service configured.")
 
-def _create_user_for_aria(session: Session, tenant_id: uuid.UUID, payload: AriaWebhookPayload) -> User:
+
+def _create_user_for_aria(session: Session, tenant_id: uuid.UUID,
+                          payload: AriaWebhookPayload) -> User:
     first_name, last_name = _split_name(payload.user.name)
     user = User(
         tenant_id=tenant_id,
@@ -183,7 +176,8 @@ def _create_user_for_aria(session: Session, tenant_id: uuid.UUID, payload: AriaW
     return user
 
 
-def _store_event_if_new(session: Session, tenant_id: uuid.UUID, payload: AriaWebhookPayload) -> bool:
+def _store_event_if_new(session: Session, tenant_id: uuid.UUID,
+                        payload: AriaWebhookPayload) -> bool:
     event_key = _build_event_key(payload)
     result = session.execute(
         text(
@@ -209,44 +203,23 @@ def _store_event_if_new(session: Session, tenant_id: uuid.UUID, payload: AriaWeb
     return bool(result)
 
 
-def _upsert_subscription_state(
-    session: Session,
-    tenant_id: uuid.UUID,
-    payload: AriaWebhookPayload,
-    user_id: Optional[uuid.UUID],
-) -> None:
+def _upsert_subscription_state(session: Session, tenant_id: uuid.UUID,
+                               payload: AriaWebhookPayload,
+                               user_id: Optional[uuid.UUID]) -> None:
     session.execute(
         text(
             """
             INSERT INTO public.aria_subscription_states
             (
-                tenant_id,
-                user_id,
-                user_email,
-                access_id,
-                subscription_id,
-                access_status,
-                subscription_status,
-                subscription_is_active,
-                next_payment,
-                last_event_type,
-                last_event_at,
-                updated_at
+                tenant_id, user_id, user_email, access_id, subscription_id,
+                access_status, subscription_status, subscription_is_active,
+                next_payment, last_event_type, last_event_at, updated_at
             )
             VALUES
             (
-                :tenant_id,
-                :user_id,
-                :user_email,
-                :access_id,
-                :subscription_id,
-                :access_status,
-                :subscription_status,
-                :subscription_is_active,
-                :next_payment,
-                :last_event_type,
-                :last_event_at,
-                :updated_at
+                :tenant_id, :user_id, :user_email, :access_id, :subscription_id,
+                :access_status, :subscription_status, :subscription_is_active,
+                :next_payment, :last_event_type, :last_event_at, :updated_at
             )
             ON CONFLICT (tenant_id, user_email)
             DO UPDATE SET
@@ -279,13 +252,13 @@ def _upsert_subscription_state(
     )
 
 
-def _sync_user_access_fields(session: Session, user_id: Optional[uuid.UUID], payload: AriaWebhookPayload) -> None:
+def _sync_user_access_fields(session: Session, user_id: Optional[uuid.UUID],
+                             payload: AriaWebhookPayload) -> None:
     if not user_id:
         return
     if not payload.access_id and not (payload.subscription and payload.subscription.id):
         return
 
-    # Si es ACCESS_GRANTED, nos aseguramos de que el usuario este activo
     is_active_part = ""
     if payload.event_type == "ACCESS_GRANTED":
         is_active_part = "is_active = true,"
@@ -309,43 +282,3 @@ def _sync_user_access_fields(session: Session, user_id: Optional[uuid.UUID], pay
             "user_id": str(user_id),
         },
     )
-
-
-@router.post("/api/saas/webhooks/aria")
-def handle_aria_webhook(
-    payload: AriaWebhookPayload,
-    db: Session = Depends(get_db),
-    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
-    authorization: Optional[str] = Header(None, alias="Authorization"),
-) -> Dict[str, Any]:
-    _verify_auth(x_api_key, authorization)
-    if payload.event_type not in SUPPORTED_EVENTS:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported event type")
-    tenant_id = _resolve_aria_tenant_id(db)
-    is_new_event = _store_event_if_new(db, tenant_id, payload)
-    if not is_new_event:
-        db.commit()
-        return {"status": "ok", "processed": False, "reason": "duplicate_event"}
-    user = _find_user_by_email(db, tenant_id, payload.user.email)
-    user_id = user.id if user else None
-    created = False
-    if payload.event_type == "ACCESS_GRANTED" and user is None and _is_new_subscription_signup(payload):
-        created_user = _create_user_for_aria(db, tenant_id, payload)
-        user = created_user
-        user_id = created_user.id
-        created = True
-    _upsert_subscription_state(db, tenant_id, payload, user_id)
-    _sync_user_access_fields(db, user_id, payload)
-    db.commit()
-
-    if created and user_id:
-        db.refresh(user)
-        # Background send email
-        _send_welcome_email(user)
-
-    return {
-        "status": "ok",
-        "processed": True,
-        "user_created": created,
-        "tenant_slug": ARIA_TENANT_SLUG,
-    }
