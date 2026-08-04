@@ -1,7 +1,6 @@
 """
 Tenant Service Configuration.
 """
-from typing import List
 from pydantic import field_validator
 
 from shared.config.base import BaseServiceSettings
@@ -30,12 +29,8 @@ class Settings(BaseServiceSettings):
     CLOUDFLARE_ACCOUNT_ID: str = ""
 
     # Domain settings
-    BASE_DOMAIN: str = "airedesk.com"
-    CNAME_TARGET: str = "customers.airedesk.com"
-
-    # CORS (lo aplica el gateway; se conserva por compat de config)
-    CORS_ORIGINS: List[str] = []
-    CORS_ORIGIN_REGEX: str = r"^https://([a-zA-Z0-9-]+\.)*airedesk\.com$|^http://localhost:3000$"
+    BASE_DOMAIN: str = "leados.local"
+    CNAME_TARGET: str = "customers.leados.local"
 
     @field_validator("SECRET_KEY")
     @classmethod

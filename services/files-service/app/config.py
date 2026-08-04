@@ -34,9 +34,5 @@ class Settings(BaseServiceSettings):
         "mp4", "mov", "avi", "mkv", "webm"  # Videos
     ]
 
-    # CORS (lo aplica el gateway; se conserva por compat de config)
-    CORS_ORIGINS: list = []
-    CORS_ORIGIN_REGEX: str = r"^https://([a-zA-Z0-9-]+\.)*airedesk\.com$|^http://localhost:3000$"
-
 
 settings = Settings()

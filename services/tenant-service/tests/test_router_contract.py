@@ -32,7 +32,7 @@ class _StubTenant:
 class _StubDomain:
     def __init__(self, **kw):
         self.id = uuid.uuid4()
-        self.domain = "app.acme.airedesk.com"
+        self.domain = "app.acme.leados.local"
         self.domain_type = "subdomain"
         self.status = "pending"
         self.ssl_status = "pending"
@@ -58,7 +58,7 @@ def test_health_ok(client):
 def test_resolve_by_host(client, svc_headers, monkeypatch):
     monkeypatch.setattr("app.services.tenants.resolve_tenant",
                         lambda **kwargs: _mocked_tenant()["tenant"])
-    resp = client.get("/api/resolve", params={"host": "acme.airedesk.com"}, headers=svc_headers)
+    resp = client.get("/api/resolve", params={"host": "acme.leados.local"}, headers=svc_headers)
     assert resp.status_code == 200
     assert resp.json()["slug"] == "acme"
 
