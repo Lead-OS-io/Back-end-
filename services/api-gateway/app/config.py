@@ -12,13 +12,12 @@ class Settings(BaseServiceSettings):
     FILES_SERVICE_URL: str = "http://localhost:8004"
 
     SECRET_KEY: str
-    DESK_SECRET_KEY: str = ""
-    HUB_SECRET_KEY: str = ""
-    NEST_SECRET_KEY: str = ""
 
     MEDIA_ROOT: str = "./media"
     RATE_LIMIT_PER_MINUTE: int = 100
     FRONTEND_URL: str = "http://localhost:3000"
+    # Regex opcional para orígenes CORS del dominio de producción (vacío en dev)
+    CORS_ORIGIN_REGEX: str = ""
 
     @property
     def service_routes(self) -> dict[str, str]:
@@ -27,7 +26,6 @@ class Settings(BaseServiceSettings):
             "/api/users": self.USERS_SERVICE_URL,
             "/api/tenants": self.TENANT_SERVICE_URL,
             "/api/files": self.FILES_SERVICE_URL,
-            "/api/saas/webhooks": self.USERS_SERVICE_URL,
             "/api/resolve": self.TENANT_SERVICE_URL,
         }
 

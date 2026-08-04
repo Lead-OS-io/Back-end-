@@ -23,7 +23,6 @@ PUBLIC_PATH_PREFIXES = (
     "/api/auth/register",
     "/api/auth/google",
     "/api/auth/password",
-    "/api/saas/webhooks",
     "/media",
     "/tutorials",
 )

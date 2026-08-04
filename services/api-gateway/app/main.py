@@ -40,13 +40,16 @@ def create_app(settings: Settings | None = None, *,
     app.add_middleware(GatewayAuthMiddleware, settings=settings)
     app.add_middleware(RateLimitMiddleware, limit=settings.RATE_LIMIT_PER_MINUTE)
     app.add_middleware(SecurityHeadersMiddleware)
+    cors_kwargs: dict = {}
+    if settings.CORS_ORIGIN_REGEX:
+        cors_kwargs["allow_origin_regex"] = settings.CORS_ORIGIN_REGEX
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[settings.FRONTEND_URL, "http://localhost:3000"],
-        allow_origin_regex=r"https://.*\.airedesk\.com",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        **cors_kwargs,
     )
 
     app.include_router(router)
