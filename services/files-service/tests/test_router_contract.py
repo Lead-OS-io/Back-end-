@@ -32,7 +32,7 @@ def _prepare_disk(client_fixture) -> _StubFile:
     client, tmp_path = client_fixture
     storage = tmp_path / "t"
     storage.mkdir(exist_ok=True)
-    (storage / "1.txt").write_bytes(b"0123456789")
+    (storage / "1.txt").write_bytes(b"01234567890")
     return _StubFile()
 
 
@@ -66,7 +66,7 @@ def test_download_returns_bytes(client, svc_headers, monkeypatch):
     c, _ = client
     resp = c.get(f"/api/files/{FILE_ID}", headers=svc_headers)
     assert resp.status_code == 200
-    assert resp.content == b"0123456789"
+    assert resp.content == b"01234567890"
 
 
 def test_download_with_range_returns_206(client, svc_headers, monkeypatch):
