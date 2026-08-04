@@ -178,9 +178,9 @@ class CalendarEvent(SQLModel, table=True):
     created_by_id: uuid.UUID = Field(foreign_key="users.id", index=True)
     assigned_to_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
 
-    case_data_id: Optional[int] = Field(default=None, foreign_key="cases.id", index=True)
-    policy_id: Optional[int] = Field(default=None, foreign_key="premium_sold.id", index=True)
-    agency_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agencies.id", index=True)
+    case_data_id: Optional[int] = Field(default=None, index=True)
+    policy_id: Optional[int] = Field(default=None, index=True)
+    agency_id: Optional[uuid.UUID] = Field(default=None, index=True)
 
     reminder_before_minutes: int = Field(default=15)
     reminder_sent: bool = Field(default=False)

@@ -31,8 +31,8 @@ router.include_router(calendar_router)
 
 
 def _invalidate_shared_cache_safe(*, user_id: Optional[str]) -> None:
-    """Same pattern as cases-service: clear this user's cached responses so
-    an update/delete is visible immediately instead of waiting out the TTL."""
+    """Clear this user's cached responses so an update/delete is visible
+    immediately instead of waiting out the TTL."""
     try:
         from app.redis_client import redis_client
         if not redis_client:

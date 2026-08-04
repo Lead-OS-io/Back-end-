@@ -1,6 +1,0 @@
-"""
-News service package initialization
-"""
-
-
-

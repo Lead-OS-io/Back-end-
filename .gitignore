@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+
+# Env
+.env
+!.env.example
+
+# Logs
+*.log
+
+# Storage local (files-service)
+storage/
+
+# uv
+.python-version
