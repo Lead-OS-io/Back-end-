@@ -23,6 +23,7 @@ from app.services import google_oauth as google_service
 from app.services.security import decode_token
 from shared.auth.dependencies import Identity
 from shared.events.bus import EventBus
+from shared.events.envelope import EventEnvelope
 from shared.utils.exceptions import AppError
 
 
@@ -55,6 +56,13 @@ def register(*, data: UserRegister, db: Session, settings,
                                       event_bus=event_bus)
     db.commit()
     db.refresh(user)
+    event_bus.publish("auth", EventEnvelope(
+        type="user.registered",
+        aggregate_id=str(user.id),
+        tenant_id=str(user.tenant_id),
+        payload={"email": user.email,
+                 "full_name": f"{user.first_name or ''} {user.last_name or ''}".strip()},
+    ))
     return user_to_response(user)
 
 

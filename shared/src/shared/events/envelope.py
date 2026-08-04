@@ -9,7 +9,7 @@ class EventEnvelope(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     type: str
     aggregate_id: str
-    tenant_id: int | None = None
+    tenant_id: int | str | None = None
     payload: dict[str, Any] = {}
     occurred_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     version: int = 1

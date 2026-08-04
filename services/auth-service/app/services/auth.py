@@ -59,7 +59,8 @@ def login_user(*, db: Session, settings: Settings, email: str, password: str,
 
 def register_user(*, db: Session, settings: Settings, data: UserRegister,
                   event_bus: EventBus | None = None) -> User:
-    """Create a user. Publishes `user.registered` on domain `auth` post-commit."""
+    """Create a user. El evento `user.registered` (domain `auth`) lo publica el
+    controller post-commit para no duplicar la publicación."""
     existing = db.exec(select(User).where(User.email == data.email)).first()
     if existing:
         raise ConflictError("email already registered")
@@ -81,14 +82,6 @@ def register_user(*, db: Session, settings: Settings, data: UserRegister,
     db.add(user)
     db.commit()
     db.refresh(user)
-    if event_bus is not None:
-        event_bus.publish("auth", EventEnvelope(
-            type="user.registered",
-            aggregate_id=str(user.id),
-            tenant_id=int(user.tenant_id) if str(user.tenant_id).isdigit() else None,
-            payload={"email": user.email,
-                     "full_name": f"{user.first_name or ''} {user.last_name or ''}".strip()},
-        ))
     return user
 
 
