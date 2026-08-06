@@ -38,7 +38,7 @@ def test_assigns_tenant_and_marks_active(db_session):
 
     db_session.refresh(user)
     assert user.tenant_id == uuid.UUID("00000000-0000-0000-0000-000000000099")
-    assert user.status == UserStatus.ACTIVE
+    assert user.status == UserStatus.ACTIVE.value
     bus.publish.assert_called_once()
     args = bus.publish.call_args
     assert args[0][0] == "onboarding"

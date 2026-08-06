@@ -19,11 +19,13 @@ class Tenant(SQLModel, table=True):
     legal_name: str = Field(max_length=255, nullable=False)
     support_inbox: str = Field(max_length=255, nullable=False)
 
-    # values_callable forces SQLAlchemy to use the lowercase .value
-    # strings ("trial", "active", ...) instead of the uppercase .name
-    # ("TRIAL", ...) when persisting to the Postgres ENUM type.
-    status: TenantStatus = Field(
-        default=TenantStatus.TRIAL,
+    # status is typed as str so SQLAlchemy ORM does NOT wrap it in an
+    # enum instance (which would re-serialize to .name UPPERCASE on
+    # flush). The SAEnum column type handles validation against the
+    # Postgres ENUM and stores the lowercase .value strings. Pass
+    # TenantStatus.X.value (a string) when constructing instances.
+    status: str = Field(
+        default=TenantStatus.TRIAL.value,
         sa_column=Field(
             sa_type=SAEnum(
                 TenantStatus,

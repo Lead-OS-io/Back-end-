@@ -37,7 +37,7 @@ def test_creates_tenant_in_trial(db_session):
     assert t.legal_name == "Acme Co LLC"
     assert t.support_inbox == "support@acme.com"
     assert t.timezone == "America/Mexico_City"
-    assert t.status == TenantStatus.TRIAL
+    assert t.status == TenantStatus.TRIAL.value
     assert t.is_active is True
     assert t.slug == slug
 

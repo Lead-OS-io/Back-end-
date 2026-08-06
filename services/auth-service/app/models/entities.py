@@ -17,12 +17,13 @@ class User(SQLModel, table=True):
     password_hash: Optional[str] = Field(default=None, max_length=255, nullable=True)
     full_name: Optional[str] = Field(default=None, max_length=255, nullable=True)
     phone: Optional[str] = Field(default=None, max_length=32, nullable=True)
-    # values_callable forces SQLAlchemy to use the lowercase .value
-    # strings ("pending_tenant", "active", "disabled") instead of the
-    # uppercase .name ("PENDING_TENANT", ...) when persisting to the
-    # Postgres ENUM type created by the migration.
-    status: UserStatus = Field(
-        default=UserStatus.PENDING_TENANT,
+    # status is typed as str so SQLAlchemy ORM does NOT wrap it in an
+    # enum instance (which would re-serialize to .name UPPERCASE on
+    # flush). The SAEnum column type handles validation against the
+    # Postgres ENUM and stores the lowercase .value strings. Pass
+    # UserStatus.X.value (a string) when constructing instances.
+    status: str = Field(
+        default=UserStatus.PENDING_TENANT.value,
         sa_column=Field(
             sa_type=SAEnum(
                 UserStatus,

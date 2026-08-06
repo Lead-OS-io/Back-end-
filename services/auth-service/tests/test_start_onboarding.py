@@ -31,7 +31,8 @@ def test_creates_user_pending_tenant(db_session):
     assert user.email == "founder@acme.com"
     assert user.full_name == "Ana Founder"
     assert user.phone == "+14155550100"
-    assert user.status == UserStatus.PENDING_TENANT
+    # user.status is stored as the lowercase enum value (str) on the model.
+    assert user.status == UserStatus.PENDING_TENANT.value
 
 
 def test_password_is_hashed_not_plain(db_session):

@@ -27,13 +27,11 @@ def start_onboarding(*, db: Session, data: OnboardingRequest) -> User:
         password_hash=_pwd.hash(data.password),
         full_name=data.name,
         phone=data.phone,
-        status=UserStatus.PENDING_TENANT.value,  # str, not enum — Postgres ENUM uses lowercase
+        status=UserStatus.PENDING_TENANT.value,  # str — model field is typed as str
     )
     db.add(user)
     db.commit()
     db.refresh(user)
-    # Re-attach the enum instance after refresh so callers still get UserStatus.PENDING_TENANT.
-    user.status = UserStatus(user.status)
     return user
 
 
@@ -74,7 +72,6 @@ def handle_tenant_created(
     user.tenant_id = uuid.UUID(event.payload["tenant_id"])
     user.status = UserStatus.ACTIVE.value  # str
     db.commit()
-    user.status = UserStatus(user.status)  # re-attach enum for callers
 
     event_bus.publish(
         "onboarding",
