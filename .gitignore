@@ -21,3 +21,6 @@ storage/
 
 # uv
 .python-version
+
+# SDD workspace scratch
+.superpowers/sdd/
