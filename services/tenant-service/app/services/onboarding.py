@@ -34,10 +34,11 @@ def handle_onboarding_pending(event: EventEnvelope, *, db: Session) -> tuple[str
         timezone=payload["timezone"],
         legal_name=payload["legal_name"],
         support_inbox=payload["support_inbox"],
-        status=TenantStatus.TRIAL,
+        status=TenantStatus.TRIAL.value,  # str, not enum — Postgres ENUM uses lowercase
         is_active=True,
     )
     db.add(tenant)
     db.commit()
     db.refresh(tenant)
+    tenant.status = TenantStatus(tenant.status)  # re-attach enum for callers
     return str(tenant.id), slug
