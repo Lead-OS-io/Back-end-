@@ -1,5 +1,4 @@
-from app.models.google import GoogleOAuthToken
-from app.models.tokens import LoginAttempt, RefreshToken
-from app.models.user import User
+from app.models.entities import User
+from app.models.enums import UserStatus
 
-__all__ = ["User", "RefreshToken", "LoginAttempt", "GoogleOAuthToken"]
+__all__ = ["User", "UserStatus"]

@@ -1,46 +1,36 @@
 import os
-from unittest.mock import MagicMock
 
 os.environ.setdefault("SERVICE_NAME", "tenant-service")
-os.environ.setdefault("PORT", "8002")
-os.environ.setdefault("DATABASE_URL", "postgresql+psycopg2://x:x@localhost:5432/x")
+os.environ.setdefault("DATABASE_URL", "sqlite:///./test.db")
 os.environ.setdefault("INTER_SERVICE_SECRET", "test-inter-service-secret")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-0123456789abcdef")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/15")
 
 import fakeredis
 import pytest
-from fastapi.testclient import TestClient
+from sqlalchemy.pool import StaticPool
+from sqlmodel import Session, SQLModel, create_engine
 
-from shared.auth.dependencies import Identity, get_current_identity
-from shared.auth.service_token import mint_service_token
-from shared.db.engine import get_db
-
-INTER_SERVICE_SECRET = "test-inter-service-secret"
+from shared.events.bus import EventBus
 
 
 @pytest.fixture
-def identity() -> Identity:
-    return Identity(user_id=1, tenant_id=1, role_id=1, is_superuser=True)
+def db_session():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        yield session
+    SQLModel.metadata.drop_all(engine)
 
 
 @pytest.fixture
-def mock_db() -> MagicMock:
-    return MagicMock()
-
-
-@pytest.fixture
-def svc_headers() -> dict[str, str]:
-    return {"X-Service-Token": mint_service_token(secret=INTER_SERVICE_SECRET, issuer="test")}
-
-
-@pytest.fixture
-def client(identity, mock_db, monkeypatch):
-    monkeypatch.setattr("redis.Redis.from_url", lambda *a, **k: fakeredis.FakeRedis(decode_responses=True))
-    from app.main import create_app
-
-    app = create_app()
-    app.dependency_overrides[get_db] = lambda: mock_db
-    app.dependency_overrides[get_current_identity] = lambda: identity
-    with TestClient(app) as c:
-        yield c
+def fake_event_bus(monkeypatch):
+    monkeypatch.setattr(
+        "redis.Redis.from_url",
+        lambda *a, **k: fakeredis.FakeRedis(decode_responses=True),
+    )
+    return EventBus("redis://localhost:6379/15")
