@@ -16,13 +16,20 @@ depends_on = None
 
 
 def upgrade() -> None:
-    media_type = sa.Enum("image", "video", "audio", "document", "other", name="media_type")
+    # The SAEnum instances below are referenced by the table columns.
+    # SQLAlchemy will auto-create the PostgreSQL ENUM types when the
+    # table is created (via _on_table_create). We do NOT call
+    # `.create(bind=..., checkfirst=True)` here because doing so creates
+    # the types twice and the second attempt fails with DuplicateObject.
+    media_type = sa.Enum(
+        "image", "video", "audio", "document", "other", name="media_type",
+        create_type=False,
+    )
     media_purpose = sa.Enum(
         "product_image", "category_image", "profile_photo", "payment_receipt",
         "banner_video", "other", name="media_purpose",
+        create_type=False,
     )
-    media_type.create(op.get_bind(), checkfirst=True)
-    media_purpose.create(op.get_bind(), checkfirst=True)
 
     op.create_table(
         "media_resources",
@@ -51,5 +58,6 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_media_resources_purpose"), table_name="media_resources")
     op.drop_index(op.f("ix_media_resources_media_type"), table_name="media_resources")
     op.drop_table("media_resources")
-    media_purpose.drop(op.get_bind(), checkfirst=True)
-    media_type.drop(op.get_bind(), checkfirst=True)
+    # Drop the enum types explicitly after the table is dropped.
+    op.execute("DROP TYPE IF EXISTS media_purpose")
+    op.execute("DROP TYPE IF EXISTS media_type")
