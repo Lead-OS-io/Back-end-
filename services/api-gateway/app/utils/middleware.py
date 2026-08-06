@@ -18,6 +18,8 @@ SECURITY_HEADERS = {
 
 PUBLIC_PATH_PREFIXES = (
     "/health",
+    "/api/docs",
+    "/api/openapi.json",
     "/api/auth/login",
     "/api/auth/token",
     "/api/auth/register",

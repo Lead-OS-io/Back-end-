@@ -5,5 +5,4 @@ COPY shared/ ./shared/
 COPY services/auth-service/ ./services/auth-service/
 WORKDIR /app/services/auth-service
 RUN uv sync --frozen
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", \
-     "--reload", "--reload-dir", "/app/services/auth-service/app", "--reload-dir", "/app/shared/src"]
+CMD ["sh", "-c", "uv run alembic upgrade head && exec uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload --reload-dir /app/services/auth-service/app --reload-dir /app/shared/src"]

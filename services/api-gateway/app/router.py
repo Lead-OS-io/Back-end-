@@ -3,6 +3,10 @@ from fastapi.responses import Response
 
 from app import controller
 from app.schemas.health import HealthResponse, ServicesHealthResponse
+from app.services.docs_aggregator.merger import (
+    aggregated_docs_html,
+    aggregated_openapi_json,
+)
 
 router = APIRouter()
 
@@ -15,6 +19,16 @@ async def health(request: Request) -> HealthResponse:
 @router.get("/health/services", response_model=ServicesHealthResponse)
 async def services_health(request: Request) -> ServicesHealthResponse:
     return await controller.services_health(request)
+
+
+@router.get("/api/openapi.json")
+async def openapi_aggregated(request: Request) -> Response:
+    return await aggregated_openapi_json(request)
+
+
+@router.get("/api/docs")
+async def docs_aggregated(request: Request) -> Response:
+    return await aggregated_docs_html(request)
 
 
 @router.get("/media/{file_path:path}")
