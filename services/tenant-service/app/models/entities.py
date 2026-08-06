@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 
+from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, SQLModel
 
 from app.models.enums import TenantStatus
@@ -18,7 +19,21 @@ class Tenant(SQLModel, table=True):
     legal_name: str = Field(max_length=255, nullable=False)
     support_inbox: str = Field(max_length=255, nullable=False)
 
-    status: TenantStatus = Field(default=TenantStatus.TRIAL, index=True)
+    # values_callable forces SQLAlchemy to use the lowercase .value
+    # strings ("trial", "active", ...) instead of the uppercase .name
+    # ("TRIAL", ...) when persisting to the Postgres ENUM type.
+    status: TenantStatus = Field(
+        default=TenantStatus.TRIAL,
+        sa_column=Field(
+            sa_type=SAEnum(
+                TenantStatus,
+                name="tenantstatus",
+                values_callable=lambda enum: [e.value for e in enum],
+            ),
+            nullable=False,
+            index=True,
+        ),
+    )
     is_active: bool = Field(default=True, nullable=False)
 
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
