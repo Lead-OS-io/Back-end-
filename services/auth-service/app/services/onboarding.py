@@ -9,7 +9,7 @@ from app.models.enums import UserStatus
 from app.schemas.onboarding import OnboardingRequest
 from shared.events.bus import EventBus
 from shared.events.envelope import EventEnvelope
-from shared.utils.exceptions import ConflictError, NotFoundError
+from shared.utils.exceptions import ConflictError
 
 logger = logging.getLogger(__name__)
 _pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -62,7 +62,8 @@ def handle_tenant_created(
     user_id = uuid.UUID(event.aggregate_id)
     user = db.get(User, user_id)
     if not user:
-        raise NotFoundError(f"user {user_id} not found")
+        logger.warning("tenant.created for unknown user %s; skipping", user_id)
+        return
 
     if user.status == UserStatus.ACTIVE:
         logger.info("user %s already active; skipping idempotently", user_id)
