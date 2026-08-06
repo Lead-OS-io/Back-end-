@@ -19,6 +19,7 @@ dependencies = [
     "passlib[bcrypt]==1.7.4",
     "bcrypt==4.0.1",
     "email-validator==2.2.0",
+    "phonenumbers==8.13.50",
     "python-multipart>=0.0.18",
     "google-auth==2.23.4",
     "google-auth-oauthlib==1.1.0",

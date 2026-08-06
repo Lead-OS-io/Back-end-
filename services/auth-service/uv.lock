@@ -58,6 +58,7 @@ dependencies = [
     { name = "httpx" },
     { name = "lead-os-shared" },
     { name = "passlib", extra = ["bcrypt"] },
+    { name = "phonenumbers" },
     { name = "psycopg2-binary" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -90,6 +91,7 @@ requires-dist = [
     { name = "httpx", specifier = "==0.27.0" },
     { name = "lead-os-shared", editable = "../../shared" },
     { name = "passlib", extras = ["bcrypt"], specifier = "==1.7.4" },
+    { name = "phonenumbers", specifier = "==8.13.50" },
     { name = "psycopg2-binary", specifier = "==2.9.11" },
     { name = "pydantic", specifier = "==2.9.2" },
     { name = "pydantic-settings", specifier = "==2.12.0" },
@@ -751,6 +753,15 @@ wheels = [
 [package.optional-dependencies]
 bcrypt = [
     { name = "bcrypt" },
+]
+
+[[package]]
+name = "phonenumbers"
+version = "8.13.50"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/55/bf/6d62a014a43e1e485185b9652ef309f8ce8998f65c9a1b7d4b89c46cb76b/phonenumbers-8.13.50.tar.gz", hash = "sha256:e05ac6fb7b98c6d719a87ea895b9fc153673b4a51f455ec9afaf557ef4629da6", size = 2297710, upload-time = "2024-11-16T07:56:49.459Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/eb/d4/2011babd77b9709dd80f89aa74611fdace859e0571cd9e79ba3f95902441/phonenumbers-8.13.50-py2.py3-none-any.whl", hash = "sha256:bb95dbc0d9979c51f7ad94bcd780784938958861fbb4b75a2fe39ccd3d58954a", size = 2583092, upload-time = "2024-11-16T07:56:46.018Z" },
 ]
 
 [[package]]

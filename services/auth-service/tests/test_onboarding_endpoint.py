@@ -42,3 +42,30 @@ def test_missing_business_name_returns_422(client):
 def test_invalid_email_returns_422(client):
     resp = client.post("/api/auth/onboarding", json=_payload(email="not-an-email"))
     assert resp.status_code == 422
+
+
+def test_phone_optional_returns_202(client):
+    payload = _payload()
+    payload.pop("phone")
+    resp = client.post("/api/auth/onboarding", json=payload)
+    assert resp.status_code == 202
+
+
+def test_invalid_phone_returns_422(client):
+    resp = client.post("/api/auth/onboarding", json=_payload(phone="not-a-phone"))
+    assert resp.status_code == 422
+
+
+def test_too_short_phone_returns_422(client):
+    resp = client.post("/api/auth/onboarding", json=_payload(phone="+1"))
+    assert resp.status_code == 422
+
+
+def test_invalid_timezone_returns_422(client):
+    resp = client.post("/api/auth/onboarding", json=_payload(timezone="Mars/Olympus"))
+    assert resp.status_code == 422
+
+
+def test_invalid_support_inbox_returns_422(client):
+    resp = client.post("/api/auth/onboarding", json=_payload(support_inbox="not-an-email"))
+    assert resp.status_code == 422
