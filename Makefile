@@ -11,7 +11,7 @@ PROFILES := $(subst $(SPACE),$(COMMA),$(strip $(filter-out $(SKIP_SERVICES),$(AL
 # compose solo opera sobre servicios con profiles activos.
 ALL_PROFILES := $(subst $(SPACE),$(COMMA),$(ALL_SERVICES))
 
-.PHONY: up down prune
+.PHONY: up down prune push-images
 
 .env:
 	@echo "Creando .env desde .env.example (valores de desarrollo)"
@@ -26,3 +26,6 @@ down:    ## Apaga todos los contenedores
 
 prune:   ## Borra contenedores y sus volúmenes (nada más)
 	COMPOSE_PROFILES=$(ALL_PROFILES) docker compose down -v --remove-orphans
+
+push-images: ## Build & push de los 5 servicios a carlos0550/lead_os_test
+	bash scripts/push-images.sh
