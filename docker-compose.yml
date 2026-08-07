@@ -47,7 +47,6 @@ services:
     environment:
       AUTH_SERVICE_URL: http://auth-service:8001
       TENANT_SERVICE_URL: http://tenant-service:8002
-      USERS_SERVICE_URL: http://users-service:8003
       FILES_SERVICE_URL: http://files-service:8004
       REDIS_URL: redis://redis:6379/0
       PORT: "8000"
@@ -98,23 +97,6 @@ services:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
 
-  users-service:
-    build:
-      context: .
-      dockerfile: services/users-service/Dockerfile.dev
-    profiles: ["users-service"]
-    environment:
-      DATABASE_URL: postgresql+psycopg2://lead_os:${POSTGRES_PASSWORD:-lead_os_dev}@postgres:5432/users_db
-      REDIS_URL: redis://redis:6379/0
-      PORT: "8003"
-    volumes:
-      - ./services/users-service:/app/services/users-service
-      - ./shared:/app/shared
-      - users_venv:/app/services/users-service/.venv
-    depends_on:
-      postgres: { condition: service_healthy }
-      redis: { condition: service_healthy }
-
   files-service:
     build:
       context: .
@@ -139,6 +121,5 @@ volumes:
   gateway_venv:
   auth_venv:
   tenant_venv:
-  users_venv:
   files_venv:
   minio_data:

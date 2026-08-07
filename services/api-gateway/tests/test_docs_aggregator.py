@@ -53,8 +53,7 @@ def _fake_openapi(service_name: str) -> dict:
 def _upstream_factory(specs: dict[str, dict]):
     async def _handler(request: httpx.Request) -> httpx.Response:
         for name, port in {
-            "auth-service": 8001, "tenant-service": 8002,
-            "users-service": 8003, "files-service": 8004,
+            "auth-service": 8001, "tenant-service": 8002, "files-service": 8004,
         }.items():
             if request.url.port == port and request.url.path == "/openapi.json":
                 if name in specs:
@@ -68,7 +67,7 @@ def aggregator_client():
     import fakeredis
     import fakeredis.aioredis
 
-    specs = {name: _fake_openapi(name) for name in ("auth-service", "tenant-service", "users-service", "files-service")}
+    specs = {name: _fake_openapi(name) for name in ("auth-service", "tenant-service", "files-service")}
     http_client = httpx.AsyncClient(transport=httpx.MockTransport(_upstream_factory(specs)))
     app = create_app(
         _settings(),
@@ -93,7 +92,7 @@ def test_merge_strips_service_prefix_and_keeps_paths_clean(aggregator_client):
     all_tags_in_items = {
         t for op in paths["/items"].values() for t in op.get("tags", [])
     }
-    for svc in ("auth-service", "tenant-service", "users-service", "files-service"):
+    for svc in ("auth-service", "tenant-service", "files-service"):
         assert svc in all_tags_in_items
 
 
@@ -101,7 +100,7 @@ def test_merge_unions_schemas_without_overwriting(aggregator_client):
     client, _ = aggregator_client
     merged = client.get("/api/openapi.json").json()
     schemas = merged["components"]["schemas"]
-    for name in ("auth-service_Item", "tenant-service_Item", "users-service_Item", "files-service_Item"):
+    for name in ("auth-service_Item", "tenant-service_Item", "files-service_Item"):
         assert name in schemas
 
 

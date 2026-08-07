@@ -27,12 +27,12 @@ async def test_forward_request_strips_hop_by_hop_headers():
     client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
     req = _scope_request("GET", "/api/users", {"Host": "gateway", "X-Other": "keep",
                                                "Connection": "close"})
-    resp = await forward_request(client, req, "http://users-service:8003")
+    resp = await forward_request(client, req, "http://auth-service:8001")
     assert resp.status_code == 200
     assert seen.get("x-other") == "keep"
     # Los hop-by-hop del cliente no se reenvían: host del upstream, no "gateway";
     # httpx 0.27 añade su propio connection: keep-alive (transport-level).
-    assert seen.get("host") == "users-service:8003"
+    assert seen.get("host") == "auth-service:8001"
     assert seen.get("connection") != "close"
 
 
@@ -46,7 +46,7 @@ async def test_retry_on_503_then_success():
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
     req = _scope_request("GET", "/api/users", {})
-    resp = await forward_with_retry(client, req, "http://users-service:8003", backoff=0)
+    resp = await forward_with_retry(client, req, "http://auth-service:8001", backoff=0)
     assert resp.status_code == 200 and calls["n"] == 3
 
 
@@ -60,5 +60,5 @@ async def test_no_retry_on_post():
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
     req = _scope_request("POST", "/api/users", {})
-    resp = await forward_with_retry(client, req, "http://users-service:8003", backoff=0)
+    resp = await forward_with_retry(client, req, "http://auth-service:8001", backoff=0)
     assert resp.status_code == 503 and calls["n"] == 1

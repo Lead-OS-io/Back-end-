@@ -4,7 +4,7 @@ COMMA := ,
 EMPTY :=
 SPACE := $(EMPTY) $(EMPTY)
 
-ALL_SERVICES := auth-service tenant-service users-service files-service
+ALL_SERVICES := auth-service tenant-service files-service
 SKIP_SERVICES ?= $(shell grep -E '^SKIP_SERVICES=' .env 2>/dev/null | cut -d= -f2 | tr ',' ' ')
 PROFILES := $(subst $(SPACE),$(COMMA),$(strip $(filter-out $(SKIP_SERVICES),$(ALL_SERVICES))))
 ALL_PROFILES := $(subst $(SPACE),$(COMMA),$(ALL_SERVICES))

@@ -20,7 +20,7 @@ def fake_redis(monkeypatch):
 
 
 def _make_consumer(handlers, max_deliveries=3):
-    return Consumer("redis://fake:6379/0", domain="auth", group="users-service",
+    return Consumer("redis://fake:6379/0", domain="auth", group="auth-service",
                     consumer_name="users-1", handlers=handlers,
                     max_deliveries=max_deliveries, block_ms=50)
 
@@ -38,7 +38,7 @@ def test_handler_receives_event_and_acks(fake_redis):
     _, fields = fake_redis.xrange("events:auth")[0]
     consumer._handle(msg_id, fields)
     assert len(received) == 1 and received[0].aggregate_id == "1"
-    pending = fake_redis.xpending("events:auth", "users-service")
+    pending = fake_redis.xpending("events:auth", "auth-service")
     assert pending["pending"] == 0
 
 
@@ -49,7 +49,7 @@ def test_unknown_event_type_is_acked_without_handler(fake_redis):
     msg_id = bus.publish("auth", EventEnvelope(type="unknown.thing", aggregate_id="9"))
     _, fields = fake_redis.xrange("events:auth")[0]
     consumer._handle(msg_id, fields)
-    assert fake_redis.xpending("events:auth", "users-service")["pending"] == 0
+    assert fake_redis.xpending("events:auth", "auth-service")["pending"] == 0
 
 
 def test_failing_message_lands_in_dlq_after_max_deliveries(fake_redis):
@@ -64,7 +64,7 @@ def test_failing_message_lands_in_dlq_after_max_deliveries(fake_redis):
         consumer._handle(msg_id, fields)
     dlq = fake_redis.xrange("events:auth:dlq")
     assert len(dlq) == 1
-    assert fake_redis.xpending("events:auth", "users-service")["pending"] == 0
+    assert fake_redis.xpending("events:auth", "auth-service")["pending"] == 0
 
 
 def test_run_forever_processes_until_stopped(fake_redis):

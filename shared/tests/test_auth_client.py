@@ -12,17 +12,17 @@ def _capture_app(request: httpx.Request) -> httpx.Response:
 
 
 def test_client_injects_fresh_service_token_on_each_request():
-    client = ServiceHttpClient(secret=SECRET, issuer="users-service",
+    client = ServiceHttpClient(secret=SECRET, issuer="auth-service",
                                transport=httpx.MockTransport(_capture_app))
     r1 = client.get("http://tenant-service:8002/api/internal/tenants/active-ids")
     r2 = client.get("http://tenant-service:8002/api/internal/tenants/active-ids")
     for resp in (r1, r2):
         claims = decode_service_token(resp.json()["token"], secret=SECRET)
-        assert claims["iss"] == "users-service"
+        assert claims["iss"] == "auth-service"
 
 
 def test_client_preserves_caller_headers():
-    client = ServiceHttpClient(secret=SECRET, issuer="users-service",
+    client = ServiceHttpClient(secret=SECRET, issuer="auth-service",
                                transport=httpx.MockTransport(_capture_app))
     resp = client.get("http://x/", headers={"X-Other": "keep-me"})
     assert resp.json()["other"] == "keep-me"

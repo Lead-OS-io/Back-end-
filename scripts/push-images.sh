@@ -3,7 +3,7 @@ set -euo pipefail
 
 REPO="carlos0550/lead_os_test"
 SHA="$(git rev-parse --short HEAD)"
-SERVICES=(api-gateway auth-service tenant-service users-service files-service)
+SERVICES=(api-gateway auth-service tenant-service files-service)
 
 for svc in "${SERVICES[@]}"; do
   tag="${REPO}:${svc}-${SHA}"
