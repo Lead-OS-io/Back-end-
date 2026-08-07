@@ -1,7 +1,7 @@
 import json
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import JSONResponse
 from sqlmodel import Session
 
@@ -128,43 +128,3 @@ def patch_me_endpoint(
         data=data, settings=settings, db=db,
         event_bus=event_bus, authorization=authorization,
     )
-
-
-@router.get("/me/avatar")
-def get_my_avatar_endpoint(
-    settings: Settings = Depends(get_settings),
-    db: Session = Depends(get_db),
-    authorization: Optional[str] = Depends(_authorization),
-):
-    upstream_response = Response()
-    return controller.get_my_avatar_response(
-        settings=settings, db=db, authorization=authorization, response=upstream_response,
-    )
-
-
-@router.post("/me/avatar")
-def post_my_avatar_endpoint(
-    file: UploadFile,
-    settings: Settings = Depends(get_settings),
-    db: Session = Depends(get_db),
-    event_bus: EventBus = Depends(get_event_bus),
-    authorization: Optional[str] = Depends(_authorization),
-    request: Request = ...,
-):
-    return controller.post_my_avatar(
-        settings=settings, db=db, authorization=authorization,
-        event_bus=event_bus, file=file, request=request,
-    )
-
-
-@router.delete("/me/avatar", status_code=204)
-def delete_my_avatar_endpoint(
-    settings: Settings = Depends(get_settings),
-    db: Session = Depends(get_db),
-    event_bus: EventBus = Depends(get_event_bus),
-    authorization: Optional[str] = Depends(_authorization),
-):
-    controller.delete_my_avatar(
-        settings=settings, db=db, authorization=authorization, event_bus=event_bus,
-    )
-    return Response(status_code=204)
