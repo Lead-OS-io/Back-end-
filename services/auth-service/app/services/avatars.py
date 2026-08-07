@@ -3,7 +3,6 @@
 Validates the upload locally (size, mime, non-empty), then delegates to
 files-service. Keeps users.avatar_media_id coherent with the remote state.
 """
-import uuid
 from typing import Optional, Tuple
 
 from sqlmodel import Session
@@ -29,20 +28,26 @@ def _reset_files_client_for_tests() -> None:
     _FILES_CLIENT_OVERRIDE = None
 
 
+def _build_files_client(settings: Settings) -> FilesClient:
+    return FilesClient(
+        base_url=settings.FILES_SERVICE_URL,
+        secret=settings.INTER_SERVICE_SECRET,
+        issuer=settings.SERVICE_NAME,
+    )
+
+
 def _resolve_files_client(
+    settings: Settings,
     files_client: Optional[FilesClient],
 ) -> FilesClient:
-    """Return the test override if set, otherwise the injected client.
-
-    Production callers construct a client per request and pass it in.
-    Tests may prefer the monkey-patched override to avoid threading the
-    dependency through every helper.
+    """Return the test override if set, otherwise the injected client,
+    otherwise a fresh FilesClient built from settings.
     """
     if files_client is not None:
         return files_client
     if _FILES_CLIENT_OVERRIDE is not None:
         return _FILES_CLIENT_OVERRIDE
-    raise AppError(500, "files_client not configured")
+    return _build_files_client(settings)
 
 
 def _validate_upload(*, content: bytes, content_type: str, settings: Settings) -> None:
@@ -64,7 +69,7 @@ def get_avatar_for_user(
 ) -> Optional[Tuple[MediaRef, str]]:
     if user.avatar_media_id is None:
         return None
-    client = _resolve_files_client(files_client)
+    client = _resolve_files_client(settings, files_client)
     try:
         media = client.get_avatar(user_id=user.id)
     except NotFoundError:
@@ -90,7 +95,7 @@ def upload_avatar_for_user(
     files_client: Optional[FilesClient] = None,
 ) -> Tuple[MediaRef, str]:
     _validate_upload(content=content, content_type=content_type, settings=settings)
-    client = _resolve_files_client(files_client)
+    client = _resolve_files_client(settings, files_client)
     media = client.upload_avatar(
         user_id=user.id,
         content=content,
@@ -116,7 +121,7 @@ def delete_avatar_for_user(
 ) -> bool:
     if user.avatar_media_id is None:
         return False
-    client = _resolve_files_client(files_client)
+    client = _resolve_files_client(settings, files_client)
     client.delete_avatar(user_id=user.id)
     user.avatar_media_id = None
     db.commit()
