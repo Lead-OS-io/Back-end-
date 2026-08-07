@@ -56,7 +56,7 @@ o un gestor externo — **no commits los `.env` reales**.
 **Migraciones** (primera vez y cada vez que cambien los modelos):
 
 ```bash
-for svc in auth-service tenant-service users-service files-service; do
+for svc in auth-service tenant-service files-service; do
   docker compose exec $svc uv run alembic upgrade head
 done
 ```

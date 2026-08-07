@@ -27,8 +27,8 @@ class Settings(BaseServiceSettings):
     # JWT Settings (clave única: SECRET_KEY)
     SECRET_KEY: str = ""
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 40  # 40 minutes
-    REFRESH_TOKEN_EXPIRE_MINUTES: int = 60  # 1 hour (login service)
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # Encryption (Fernet key para passwords y refresh tokens de terceros)
@@ -49,7 +49,7 @@ class Settings(BaseServiceSettings):
 
     # Cookie configuration
     COOKIE_SECURE: bool = False
-    COOKIE_SAMESITE: str = "lax"
+    COOKIE_SAMESITE: str = "strict"
     COOKIE_PATH: str = "/api/auth"
     COOKIE_DOMAIN: str = ""
 

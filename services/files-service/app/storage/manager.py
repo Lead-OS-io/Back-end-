@@ -66,8 +66,7 @@ class MediaManager:
             },
         )
         self._db.add(row)
-        self._db.commit()
-        self._db.refresh(row)
+        self._db.flush()
 
         self._backend.put_object(
             bucket=row.bucket,
@@ -76,6 +75,9 @@ class MediaManager:
             size=size_bytes,
             content_type=content_type,
         )
+
+        self._db.commit()
+        self._db.refresh(row)
         return row
 
     def get_avatar(self, *, user_id: uuid.UUID) -> Optional[MediaResources]:

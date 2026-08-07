@@ -141,5 +141,4 @@ volumes:
   tenant_venv:
   users_venv:
   files_venv:
-  files_storage:
   minio_data:
