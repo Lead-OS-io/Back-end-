@@ -1,4 +1,4 @@
-"""Schema-level tests for the new RefreshToken model and User.avatar_media_id."""
+"""Schema-level tests for the RefreshToken model."""
 import uuid
 
 from sqlalchemy.pool import StaticPool
@@ -43,13 +43,3 @@ def test_refresh_token_can_be_persisted_with_hash():
     fetched = s.get(RefreshToken, rt.id)
     assert fetched.token_hash == "deadbeef" * 8
 
-
-def test_user_has_avatar_media_id_column():
-    user = User(
-        email="x@x.com",
-        password_hash="$2b$12$xxxx",
-        full_name="X",
-        status=UserStatus.ACTIVE.value,
-    )
-    user.avatar_media_id = uuid.uuid4()
-    assert user.avatar_media_id is not None

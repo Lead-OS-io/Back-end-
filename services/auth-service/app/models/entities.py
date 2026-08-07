@@ -34,7 +34,6 @@ class User(SQLModel, table=True):
             index=True,
         ),
     )
-    avatar_media_id: Optional[uuid.UUID] = Field(default=None, nullable=True)
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     modified_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 
