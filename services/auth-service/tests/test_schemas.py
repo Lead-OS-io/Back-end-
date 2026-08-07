@@ -5,7 +5,6 @@ from pydantic import ValidationError
 
 from app.schemas.auth import LoginRequest
 from app.schemas.user import UserUpdateRequest
-from app.schemas.avatar import AvatarResponse
 
 
 def test_login_request_email_password():
@@ -34,13 +33,3 @@ def test_user_update_accepts_partial():
 
     req = UserUpdateRequest()
     assert req.full_name is None and req.phone is None
-
-
-def test_avatar_response_parses_minimal():
-    r = AvatarResponse(
-        media_id=uuid4(),
-        avatar_url="https://x/y.png",
-        size_bytes=42,
-        mimetype="image/png",
-    )
-    assert isinstance(r.media_id, UUID)

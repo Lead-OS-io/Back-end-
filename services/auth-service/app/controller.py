@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import Response, UploadFile
+from fastapi import Response
 
 from app.config import Settings
 from app.models.entities import User
@@ -193,101 +193,4 @@ def patch_me(*, data, settings: Settings, db,
     return _build_user_response(user=changed, db=db, settings=settings)
 
 
-def get_my_avatar_response(*, settings: Settings, db, authorization: Optional[str],
-                            response: Response) -> Response:
-    import uuid
 
-    from app.services.avatars import get_avatar_for_user
-    from app.services.users import get_user_by_id
-    from app.services.validate import validate_access_token
-    from shared.utils.exceptions import AppError, NotFoundError
-
-    if not authorization or not authorization.lower().startswith("bearer "):
-        raise AppError(401, "invalid token")
-    token = authorization.split(None, 1)[1].strip()
-    result = validate_access_token(token=token, secret=settings.SECRET_KEY)
-    user_id = uuid.UUID(result.claims["sub"])
-    user = get_user_by_id(db=db, user_id=user_id)
-    outcome = get_avatar_for_user(db=db, settings=settings, user=user)
-    if outcome is None:
-        raise NotFoundError("no avatar")
-    _, url = outcome
-    response.status_code = 302
-    response.headers["location"] = url
-    return response
-
-
-def post_my_avatar(*, settings: Settings, db, authorization: Optional[str],
-                   event_bus: EventBus, file: UploadFile,
-                   request) -> dict:
-    import uuid
-
-    from app.schemas.avatar import AvatarResponse
-    from app.services.avatars import upload_avatar_for_user
-    from app.services.users import get_user_by_id
-    from app.services.validate import validate_access_token
-    from shared.events.envelope import EventEnvelope
-    from shared.utils.exceptions import AppError
-
-    if not authorization or not authorization.lower().startswith("bearer "):
-        raise AppError(401, "invalid token")
-    token = authorization.split(None, 1)[1].strip()
-    result = validate_access_token(token=token, secret=settings.SECRET_KEY)
-    user_id = uuid.UUID(result.claims["sub"])
-    user = get_user_by_id(db=db, user_id=user_id)
-    content = file.file.read()
-    media, url = upload_avatar_for_user(
-        db=db, settings=settings, user=user,
-        content=content,
-        filename=file.filename or "avatar.bin",
-        content_type=file.content_type or "application/octet-stream",
-    )
-    event_bus.publish(
-        "auth",
-        EventEnvelope(
-            type="user.avatar.changed",
-            aggregate_id=str(user.id),
-            tenant_id=str(user.tenant_id) if user.tenant_id else None,
-            payload={
-                "user_id": str(user.id),
-                "media_id": str(media.media_id),
-                "mimetype": media.mimetype,
-                "size_bytes": media.size_bytes,
-            },
-        ),
-    )
-    return AvatarResponse(
-        media_id=media.media_id,
-        avatar_url=url,
-        size_bytes=media.size_bytes,
-        mimetype=media.mimetype,
-    ).model_dump()
-
-
-def delete_my_avatar(*, settings: Settings, db,
-                     authorization: Optional[str], event_bus: EventBus) -> None:
-    import uuid
-
-    from app.services.avatars import delete_avatar_for_user
-    from app.services.users import get_user_by_id
-    from app.services.validate import validate_access_token
-    from shared.events.envelope import EventEnvelope
-    from shared.utils.exceptions import AppError, NotFoundError
-
-    if not authorization or not authorization.lower().startswith("bearer "):
-        raise AppError(401, "invalid token")
-    token = authorization.split(None, 1)[1].strip()
-    result = validate_access_token(token=token, secret=settings.SECRET_KEY)
-    user_id = uuid.UUID(result.claims["sub"])
-    user = get_user_by_id(db=db, user_id=user_id)
-    if not delete_avatar_for_user(db=db, settings=settings, user=user):
-        raise NotFoundError("no avatar")
-    event_bus.publish(
-        "auth",
-        EventEnvelope(
-            type="user.avatar.removed",
-            aggregate_id=str(user.id),
-            tenant_id=str(user.tenant_id) if user.tenant_id else None,
-            payload={"user_id": str(user.id)},
-        ),
-    )
