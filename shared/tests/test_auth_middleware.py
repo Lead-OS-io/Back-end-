@@ -56,3 +56,60 @@ def test_valid_token_but_missing_identity_headers_is_401():
     token = mint_service_token(secret=SECRET, issuer="api-gateway")
     resp = TestClient(_make_app()).get("/me", headers={"X-Service-Token": token})
     assert resp.status_code == 401
+
+
+def test_prefix_exempt_path_is_allowed_without_token():
+    app = FastAPI()
+    app.add_middleware(
+        ServiceTokenMiddleware,
+        secret=SECRET,
+        exempt_prefixes=frozenset({"/public"}),
+    )
+
+    @app.get("/public/health")
+    def health():
+        return {"ok": True}
+
+    assert TestClient(app).get("/public/health").status_code == 200
+
+
+def test_non_matching_prefix_still_requires_token():
+    app = FastAPI()
+    app.add_middleware(
+        ServiceTokenMiddleware,
+        secret=SECRET,
+        exempt_prefixes=frozenset({"/public"}),
+    )
+
+    @app.get("/internal/ping")
+    def ping():
+        return {"ok": True}
+
+    assert TestClient(app).get("/internal/ping").status_code == 401
+
+
+def test_exact_match_still_works_alongside_prefix():
+    app = FastAPI()
+    app.add_middleware(
+        ServiceTokenMiddleware,
+        secret=SECRET,
+        exempt_paths=frozenset({"/health"}),
+        exempt_prefixes=frozenset({"/public"}),
+    )
+
+    @app.get("/health")
+    def health():
+        return {"ok": True}
+
+    @app.get("/public/anything")
+    def anything():
+        return {"ok": True}
+
+    @app.get("/secure")
+    def secure():
+        return {"ok": True}
+
+    c = TestClient(app)
+    assert c.get("/health").status_code == 200
+    assert c.get("/public/anything").status_code == 200
+    assert c.get("/secure").status_code == 401

@@ -8,14 +8,26 @@ EXEMPT_PATHS = frozenset({"/health"})
 
 
 class ServiceTokenMiddleware:
-    def __init__(self, app: ASGIApp, *, secret: str,
-                 exempt_paths: frozenset[str] = EXEMPT_PATHS):
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        secret: str,
+        exempt_paths: frozenset[str] = EXEMPT_PATHS,
+        exempt_prefixes: frozenset[str] = frozenset(),
+    ):
         self.app = app
         self.secret = secret
         self.exempt_paths = exempt_paths
+        self.exempt_prefixes = exempt_prefixes
+
+    def _is_exempt(self, path: str) -> bool:
+        if path in self.exempt_paths:
+            return True
+        return any(path.startswith(prefix) for prefix in self.exempt_prefixes)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http" or scope["path"] in self.exempt_paths:
+        if scope["type"] != "http" or self._is_exempt(scope["path"]):
             await self.app(scope, receive, send)
             return
 
