@@ -44,6 +44,11 @@ def fake_storage() -> FakeStorage:
     return FakeStorage()
 
 
+@pytest.fixture(autouse=True)
+def _stub_storage(monkeypatch):
+    monkeypatch.setattr("app.main.get_storage", lambda _settings: FakeStorage())
+
+
 @pytest.fixture
 def client() -> Iterator[TestClient]:
     from app.main import create_app
