@@ -1,4 +1,4 @@
-"""Internal router: avatar upload/get/delete for users."""
+"""Internal router: avatar read + presign for inter-service callers."""
 import io
 import uuid
 
@@ -8,7 +8,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
 from app.main import create_app
-from app.storage import get_storage
+from app.storage.manager import MediaManager
 from shared.auth.service_token import mint_service_token
 
 from tests.conftest import FakeStorage
@@ -18,31 +18,58 @@ SVC_SECRET = "test-inter-service-secret"
 
 
 @pytest.fixture
-def client(monkeypatch) -> TestClient:
-    fake = FakeStorage()
-    monkeypatch.setattr(
-        "app.internal_router.get_storage",
-        lambda _settings: fake,
-    )
-
-    settings = type("S", (), {})()
-    settings.SECRET_KEY = "test-secret-key-0123456789abcdef"
-
+def engine():
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
+    return engine
 
+
+@pytest.fixture
+def fake_storage():
+    return FakeStorage()
+
+
+@pytest.fixture
+def settings(fake_storage):
+    return type(
+        "S2",
+        (),
+        {
+            "INTER_SERVICE_SECRET": SVC_SECRET,
+            "PRESIGN_TTL_SECONDS": 300,
+            "AVATAR_MAX_BYTES": 5 * 1024 * 1024,
+            "AVATAR_ALLOWED_MIMETYPES": ("image/jpeg", "image/png", "image/webp"),
+            "STORAGE_BACKEND": "local",
+        },
+    )()
+
+
+@pytest.fixture
+def client(monkeypatch, engine, fake_storage, settings) -> TestClient:
+    monkeypatch.setattr("app.main.get_storage", lambda _settings: fake_storage)
+    monkeypatch.setattr("app.internal_router.get_storage", lambda _settings: fake_storage)
     app = create_app()
     headers = {"X-Service-Token": mint_service_token(secret=SVC_SECRET, issuer="test")}
     with TestClient(app, headers=headers) as c:
         app.state.session_factory = lambda: Session(engine)
-        app.state.storage = fake
-        app.state.settings = type(
-            "S2", (), {"INTER_SERVICE_SECRET": SVC_SECRET, "PRESIGN_TTL_SECONDS": 300}
-        )()
+        app.state.storage = fake_storage
+        app.state.settings = settings
+        yield c
+
+
+@pytest.fixture
+def client_public(monkeypatch, engine, fake_storage, settings):
+    monkeypatch.setattr("app.main.get_storage", lambda _settings: fake_storage)
+    app = create_app()
+    uid = str(uuid.uuid4())
+    with TestClient(app, headers={"X-User-Id": uid}) as c:
+        app.state.session_factory = lambda: Session(engine)
+        app.state.storage = fake_storage
+        app.state.settings = settings
         yield c
 
 
@@ -54,19 +81,20 @@ def _png_bytes() -> bytes:
     )
 
 
-def test_upload_avatar_returns_201_and_creates_row(client):
-    user_id = str(uuid.uuid4())
-    files = {"file": ("avatar.png", io.BytesIO(_png_bytes()), "image/png")}
-    resp = client.post(
-        f"/internal/files/users/{user_id}/avatar",
-        files=files,
-        headers={"X-User-Id": user_id},
-    )
-    assert resp.status_code == 201, resp.text
-    body = resp.json()
-    assert body["bucket"] == "avatars"
-    assert body["size_bytes"] > 0
-    assert body["mimetype"] == "image/png"
+def _seed_avatar(user_id: str, client_public):
+    """Create a profile photo directly in the shared DB via MediaManager."""
+    with Session(client_public.app.state.session_factory().get_bind()) as session:
+        manager = MediaManager(db=session, backend=client_public.app.state.storage)
+        media = manager.upload_avatar(
+            tenant_id=None,
+            user_id=uuid.UUID(user_id),
+            content=_png_bytes(),
+            filename="avatar.png",
+            content_type="image/png",
+            size_bytes=len(_png_bytes()),
+        )
+        session.commit()
+        return str(media.id)
 
 
 def test_get_avatar_returns_404_when_missing(client):
@@ -75,14 +103,10 @@ def test_get_avatar_returns_404_when_missing(client):
     assert resp.status_code == 404
 
 
-def test_get_avatar_returns_metadata(client):
-    user_id = str(uuid.uuid4())
-    files = {"file": ("avatar.png", io.BytesIO(_png_bytes()), "image/png")}
-    client.post(
-        f"/internal/files/users/{user_id}/avatar",
-        files=files,
-        headers={"X-User-Id": user_id},
-    )
+def test_get_avatar_returns_metadata(client, client_public):
+    user_id = client_public.headers.get("X-User-Id")
+    _seed_avatar(user_id, client_public)
+
     resp = client.get(f"/internal/files/users/{user_id}/avatar")
     assert resp.status_code == 200
     body = resp.json()
@@ -90,28 +114,10 @@ def test_get_avatar_returns_metadata(client):
     assert "users/" in body["key"]
 
 
-def test_delete_avatar_returns_204(client):
-    user_id = str(uuid.uuid4())
-    files = {"file": ("avatar.png", io.BytesIO(_png_bytes()), "image/png")}
-    client.post(
-        f"/internal/files/users/{user_id}/avatar",
-        files=files,
-        headers={"X-User-Id": user_id},
-    )
-    resp = client.delete(f"/internal/files/users/{user_id}/avatar")
-    assert resp.status_code == 204
-    assert client.get(f"/internal/files/users/{user_id}/avatar").status_code == 404
+def test_presign_endpoint_returns_url(client, client_public):
+    user_id = client_public.headers.get("X-User-Id")
+    media_id = _seed_avatar(user_id, client_public)
 
-
-def test_presign_endpoint_returns_url(client):
-    user_id = str(uuid.uuid4())
-    files = {"file": ("avatar.png", io.BytesIO(_png_bytes()), "image/png")}
-    up = client.post(
-        f"/internal/files/users/{user_id}/avatar",
-        files=files,
-        headers={"X-User-Id": user_id},
-    )
-    media_id = up.json()["media_id"]
     resp = client.get(f"/internal/files/media/{media_id}/presign", params={"ttl": 30})
     assert resp.status_code == 200
     body = resp.json()

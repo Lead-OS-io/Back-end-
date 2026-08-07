@@ -10,10 +10,8 @@ from typing import Optional
 from fastapi import (
     APIRouter,
     Depends,
-    File,
     HTTPException,
     Request,
-    UploadFile,
 )
 from sqlmodel import Session
 
@@ -41,38 +39,6 @@ def _manager(request: Request, settings: Settings = Depends(_settings)) -> Media
     )
 
 
-@router.post(
-    "/users/{user_id}/avatar",
-    response_model=MediaRef,
-    status_code=201,
-)
-def upload_avatar(
-    user_id: uuid.UUID,
-    file: UploadFile = File(...),
-    manager: MediaManager = Depends(_manager),
-) -> MediaRef:
-    contents = file.file.read()
-    if not contents:
-        raise HTTPException(status_code=422, detail="empty file")
-
-    media = manager.upload_avatar(
-        tenant_id=None,
-        user_id=user_id,
-        content=contents,
-        filename=file.filename or "avatar.bin",
-        content_type=file.content_type or "application/octet-stream",
-        size_bytes=len(contents),
-    )
-    return MediaRef(
-        media_id=media.id,
-        bucket=media.bucket,
-        key=media.path,
-        size_bytes=media.size_bytes,
-        mimetype=media.mimetype,
-        purpose=media.purpose,
-    )
-
-
 @router.get(
     "/users/{user_id}/avatar",
     response_model=MediaRef,
@@ -92,16 +58,6 @@ def get_avatar(
         mimetype=media.mimetype,
         purpose=media.purpose,
     )
-
-
-@router.delete("/users/{user_id}/avatar", status_code=204)
-def delete_avatar(
-    user_id: uuid.UUID,
-    manager: MediaManager = Depends(_manager),
-) -> None:
-    if not manager.delete_avatar(user_id=user_id):
-        raise HTTPException(status_code=404, detail="no avatar")
-    return None
 
 
 @router.get(
