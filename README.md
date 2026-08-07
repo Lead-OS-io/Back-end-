@@ -32,17 +32,26 @@ cliente ──► api-gateway:8000 (único puerto publicado)
 ## Desarrollo local
 
 ```bash
-cp .env.example .env   # rellenar secretos (ver abajo)
+echo "POSTGRES_PASSWORD=lead_os_dev" > .env       # root .env: solo stack-level
+make env-init                                    # crea services/<svc>/.env desde .env.example
 make up
 ```
 
+Cada microservicio tiene su propio `.env` (de `services/<svc>/.env`) y su
+`.env.example` commiteado. `make env-init` es idempotente: si el `.env` ya
+existe, no lo sobrescribe.
+
 | Comando | Descripción |
 |---|---|
-| `make up` | Levanta el stack completo (postgres + redis + gateway + 4 servicios) |
+| `make env-init` | Crea los `.env` por servicio si faltan |
+| `make up` | Levanta el stack completo |
 | `make down` | Apaga los contenedores |
-| `make prune` | Borra contenedores y volúmenes (estado limpio) |
+| `make prune` | Borra contenedores y volúmenes |
 
-**Exclusión de servicios**: en `.env`, `SKIP_SERVICES=files-service` (coma-separado) excluye ese servicio del `up`; el gateway lo reporta como `healthy: false` en `/health/services`.
+**`.env` por servicio**: los secretos comunes a varios servicios
+(`INTER_SERVICE_SECRET`, `SECRET_KEY`) deben coincidir entre todos los
+`.env` por servicio. En producción, montá los secretos vía Docker secrets
+o un gestor externo — **no commits los `.env` reales**.
 
 **Migraciones** (primera vez y cada vez que cambien los modelos):
 
@@ -73,13 +82,12 @@ Build por servicio (contexto = raíz del repo, necesita `shared/`):
 docker build -f services/<svc>/Dockerfile -t registry/lead-os-<svc>:<tag> .
 ```
 
-| Servicio | Variables requeridas (además de las compartidas) |
+| Servicio | Variables en `services/<svc>/.env` |
 |---|---|
-| api-gateway | `SECRET_KEY`, `RATE_LIMIT_PER_MINUTE`, `FRONTEND_URL`, `MEDIA_ROOT`, `CORS_ORIGIN_REGEX` (opcional) |
-| auth-service | `SECRET_KEY`, `FERNET_KEY` (obligatoria: hashes y refresh tokens de Google se cifran), `GOOGLE_CREDENTIALS_JSON` (opcional), `TENANT_SERVICE_URL` |
-| tenant-service | `SECRET_KEY`, `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ZONE_ID`/`CLOUDFLARE_ACCOUNT_ID` (opcionales, sin ellos el DNS se mockea), `BASE_DOMAIN`, `CNAME_TARGET` |
-| users-service | `SECRET_KEY`, `GOOGLE_CREDENTIALS_JSON` (opcional), `AUTH_SERVICE_URL` |
-| files-service | `SECRET_KEY`, `STORAGE_PATH`, `MAX_FILE_SIZE`, `ALLOWED_EXTENSIONS` |
+| api-gateway | `SECRET_KEY`, `RATE_LIMIT_PER_MINUTE`, `FRONTEND_URL`, `MEDIA_ROOT`, `CORS_ORIGIN_REGEX` |
+| auth-service | `SECRET_KEY`, `FERNET_KEY`, `ACCESS_TOKEN_EXPIRE_MINUTES`, `REFRESH_TOKEN_EXPIRE_MINUTES`, `COOKIE_SECURE`, `COOKIE_SAMESITE`, `COOKIE_PATH`, `COOKIE_DOMAIN`, `FILES_SERVICE_URL`, `TENANT_SERVICE_URL`, `FRONTEND_URL` |
+| tenant-service | `SECRET_KEY`, `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ZONE_ID`/`CLOUDFLARE_ACCOUNT_ID` (opcionales), `BASE_DOMAIN`, `CNAME_TARGET` |
+| files-service | `SECRET_KEY`, `STORAGE_BACKEND=minio`, `MINIO_ENDPOINT`, `MINIO_PUBLIC_ENDPOINT`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `MINIO_SECURE`, `MINIO_BUCKET`, `INIT_BUCKETS_JSON`, `AVATAR_MAX_BYTES`, `AVATAR_ALLOWED_MIMETYPES`, `PRESIGN_TTL_SECONDS` |
 
 Compartidas: `SERVICE_NAME`, `DATABASE_URL` (por servicio: `auth_db`/`tenant_db`/`users_db`/`files_db`), `REDIS_URL`, `INTER_SERVICE_SECRET`, `ENVIRONMENT`, `DEBUG`, `PORT`, `HOST`.
 
