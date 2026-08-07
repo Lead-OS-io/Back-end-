@@ -3,8 +3,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.auth import PublicAuthMiddleware
 from app.config import Settings
 from app.internal_router import router as internal_router
+from app.public_router import router as public_router
 from app.storage import get_storage
 from shared.auth.middleware import ServiceTokenMiddleware
 from shared.db.engine import create_service_engine, get_session_factory
@@ -31,8 +33,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="files-service", lifespan=lifespan)
     register_exception_handlers(app)
-    app.add_middleware(ServiceTokenMiddleware, secret=settings.INTER_SERVICE_SECRET)
+    # Middleware order matters: ServiceTokenMiddleware is added LAST so it
+    # runs FIRST on incoming requests (Starlette applies middleware in
+    # reverse-add order). It exempts /health and /public/* paths.
+    app.add_middleware(PublicAuthMiddleware)
+    app.add_middleware(
+        ServiceTokenMiddleware,
+        secret=settings.INTER_SERVICE_SECRET,
+        exempt_prefixes=frozenset({"/public"}),
+    )
     app.include_router(internal_router, prefix="/internal/files")
+    app.include_router(public_router, prefix="/public/files")
 
     @app.get("/health")
     def health() -> dict:
