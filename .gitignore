@@ -27,3 +27,6 @@ storage/
 
 # SDD workspace scratch
 .superpowers/sdd/
+
+# Throwaway test artifacts (sqlite files used by alembic upgrade head smoke tests)
+**/test.db
