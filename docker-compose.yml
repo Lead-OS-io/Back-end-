@@ -21,11 +21,29 @@ services:
       interval: 5s
       retries: 10
 
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    env_file:
+      - ./services/files-service/.env
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
   api-gateway:
     build:
       context: .
       dockerfile: services/api-gateway/Dockerfile.dev
-    env_file: .env
     environment:
       AUTH_SERVICE_URL: http://auth-service:8001
       TENANT_SERVICE_URL: http://tenant-service:8002
@@ -37,6 +55,7 @@ services:
       - "8000:8000"
     volumes:
       - ./services/api-gateway:/app/services/api-gateway
+      - ./services/api-gateway/.env:/app/services/api-gateway/.env:ro
       - ./shared:/app/shared
       - gateway_venv:/app/services/api-gateway/.venv
     depends_on:
@@ -48,13 +67,13 @@ services:
       context: .
       dockerfile: services/auth-service/Dockerfile.dev
     profiles: ["auth-service"]
-    env_file: .env
     environment:
       DATABASE_URL: postgresql+psycopg2://lead_os:${POSTGRES_PASSWORD:-lead_os_dev}@postgres:5432/auth_db
       REDIS_URL: redis://redis:6379/0
       PORT: "8001"
     volumes:
       - ./services/auth-service:/app/services/auth-service
+      - ./services/auth-service/.env:/app/services/auth-service/.env:ro
       - ./shared:/app/shared
       - auth_venv:/app/services/auth-service/.venv
     depends_on:
@@ -66,13 +85,13 @@ services:
       context: .
       dockerfile: services/tenant-service/Dockerfile.dev
     profiles: ["tenant-service"]
-    env_file: .env
     environment:
       DATABASE_URL: postgresql+psycopg2://lead_os:${POSTGRES_PASSWORD:-lead_os_dev}@postgres:5432/tenant_db
       REDIS_URL: redis://redis:6379/0
       PORT: "8002"
     volumes:
       - ./services/tenant-service:/app/services/tenant-service
+      - ./services/tenant-service/.env:/app/services/tenant-service/.env:ro
       - ./shared:/app/shared
       - tenant_venv:/app/services/tenant-service/.venv
     depends_on:
@@ -84,7 +103,6 @@ services:
       context: .
       dockerfile: services/users-service/Dockerfile.dev
     profiles: ["users-service"]
-    env_file: .env
     environment:
       DATABASE_URL: postgresql+psycopg2://lead_os:${POSTGRES_PASSWORD:-lead_os_dev}@postgres:5432/users_db
       REDIS_URL: redis://redis:6379/0
@@ -102,20 +120,19 @@ services:
       context: .
       dockerfile: services/files-service/Dockerfile.dev
     profiles: ["files-service"]
-    env_file: .env
     environment:
       DATABASE_URL: postgresql+psycopg2://lead_os:${POSTGRES_PASSWORD:-lead_os_dev}@postgres:5432/files_db
       REDIS_URL: redis://redis:6379/0
       PORT: "8004"
-      STORAGE_PATH: /data/storage
     volumes:
       - ./services/files-service:/app/services/files-service
+      - ./services/files-service/.env:/app/services/files-service/.env:ro
       - ./shared:/app/shared
       - files_venv:/app/services/files-service/.venv
-      - files_storage:/data/storage
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
+      minio: { condition: service_healthy }
 
 volumes:
   pgdata:
@@ -125,3 +142,4 @@ volumes:
   users_venv:
   files_venv:
   files_storage:
+  minio_data:

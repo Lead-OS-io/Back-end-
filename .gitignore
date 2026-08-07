@@ -12,6 +12,9 @@ build/
 # Env
 .env
 !.env.example
+# Per-service env files (committed .example, ignored real one)
+services/*/.env
+!/services/*/.env.example
 
 # Logs
 *.log
