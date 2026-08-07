@@ -47,6 +47,12 @@ class Settings(BaseServiceSettings):
     AVATAR_ALLOWED_MIMETYPES: Tuple[str, ...] = ("image/jpeg", "image/png", "image/webp")
     PRESIGN_TTL_SECONDS: int = 300
 
+    # Cookie configuration
+    COOKIE_SECURE: bool = False
+    COOKIE_SAMESITE: str = "lax"
+    COOKIE_PATH: str = "/api/auth"
+    COOKIE_DOMAIN: str = ""
+
     # Frontend URL for password reset links
     FRONTEND_URL: str = "http://localhost:3000"
 
