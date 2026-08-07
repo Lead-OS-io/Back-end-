@@ -10,6 +10,18 @@ from typing import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.sqlite.base import SQLiteTypeCompiler
+
+
+# Register a SQLite visitor for JSONB so the in-memory sqlite engine can compile
+# the MediaResources.meta column (declared as sa_type=JSONB in entities.py).
+# The production model remains PostgreSQL JSONB; this shim only affects tests.
+def _visit_jsonb(_self, _type, **_kw):
+    return "JSON"
+
+
+SQLiteTypeCompiler.visit_JSONB = _visit_jsonb
 
 
 class FakeStorage:

@@ -2,8 +2,6 @@
 import uuid
 
 import pytest
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.dialects.sqlite.base import SQLiteTypeCompiler
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
@@ -12,16 +10,6 @@ from app.models.enums import MediaPurpose
 from app.storage.manager import MediaManager
 
 from tests.conftest import FakeStorage
-
-
-# Register a SQLite visitor for JSONB so the in-memory sqlite engine can compile
-# the MediaResources.meta column (declared as sa_type=JSONB in entities.py).
-# The production model remains PostgreSQL JSONB; this shim only affects tests.
-def _visit_jsonb(_self, _type, **_kw):
-    return "JSON"
-
-
-SQLiteTypeCompiler.visit_JSONB = _visit_jsonb
 
 
 def _session() -> Session:
