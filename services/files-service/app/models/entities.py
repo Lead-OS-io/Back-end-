@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import BigInteger, Column
@@ -13,6 +14,9 @@ class MediaResources(SQLModel, table=True):
     __tablename__ = "media_resources"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+
+    tenant_id: Optional[uuid.UUID] = Field(default=None, index=True, nullable=True)
+    user_id: Optional[uuid.UUID] = Field(default=None, index=True, nullable=True)
 
     original_filename: str = Field(nullable=False)
     media_type: MediaType = Field(
@@ -37,6 +41,8 @@ class MediaResources(SQLModel, table=True):
         nullable=False,
     )
     sort_order: Optional[int] = Field(default=None, nullable=True, sa_column_kwargs={"server_default": "0"})
+
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 
     class Config:
         arbitrary_types_allowed = True
