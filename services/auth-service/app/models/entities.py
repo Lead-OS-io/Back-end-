@@ -34,5 +34,21 @@ class User(SQLModel, table=True):
             index=True,
         ),
     )
+    avatar_media_id: Optional[uuid.UUID] = Field(default=None, nullable=True)
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     modified_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+
+
+class RefreshToken(SQLModel, table=True):
+    __tablename__ = "refresh_tokens"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="users.id", index=True, nullable=False)
+    tenant_id: Optional[uuid.UUID] = Field(default=None, index=True, nullable=True)
+    token_hash: str = Field(unique=True, index=True, max_length=128, nullable=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    expires_at: datetime = Field(nullable=False)
+    revoked_at: Optional[datetime] = Field(default=None, nullable=True)
+    revoked_reason: Optional[str] = Field(default=None, max_length=64, nullable=True)
+    ip: Optional[str] = Field(default=None, max_length=64, nullable=True)
+    user_agent: Optional[str] = Field(default=None, max_length=512, nullable=True)
