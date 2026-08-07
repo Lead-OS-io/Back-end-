@@ -53,28 +53,17 @@ def _clear_refresh_cookie(response: Response, settings: Settings) -> None:
 def _build_user_response(
     *, user: User, db, settings: Settings
 ) -> dict:
-    import uuid
+    from app.services.avatars_read import get_avatar_summary
 
-    from app.schemas.auth import LoginResponse
-
-    has_avatar = user.avatar_media_id is not None
-    avatar_url: Optional[str] = None
-    if has_avatar:
-        from app.services.avatars import get_avatar_for_user as _gaf
-
-        result = _gaf(db=db, settings=settings, user=user)
-        if result is not None:
-            avatar_url = result[1]
-        else:
-            has_avatar = False
+    summary = get_avatar_summary(settings=settings, user_id=user.id)
     return UserResponse(
         user_id=str(user.id),
         email=user.email,
         full_name=user.full_name,
         phone=user.phone,
         status=user.status,
-        has_avatar=has_avatar,
-        avatar_url=avatar_url,
+        has_avatar=summary.has_avatar,
+        avatar_url=summary.avatar_url,
         created_at=user.created_at.isoformat(),
         modified_at=user.modified_at.isoformat(),
     ).model_dump()

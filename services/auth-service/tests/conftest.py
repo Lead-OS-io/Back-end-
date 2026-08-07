@@ -35,10 +35,8 @@ def settings() -> Settings:
         REDIS_URL="redis://localhost:6379/15",
         ACCESS_TOKEN_EXPIRE_MINUTES=15,
         REFRESH_TOKEN_EXPIRE_MINUTES=60,
-        AVATAR_ALLOWED_MIMETYPES=("image/jpeg", "image/png", "image/webp"),
-        AVATAR_MAX_BYTES=5 * 1024 * 1024,
-        PRESIGN_TTL_SECONDS=300,
         FILES_SERVICE_URL="http://files-service:8004",
+        PRESIGN_TTL_SECONDS=300,
         COOKIE_SECURE=False,
         COOKIE_SAMESITE="lax",
         COOKIE_PATH="/api/auth",
@@ -85,58 +83,45 @@ def svc_headers() -> dict[str, str]:
     return {"X-Service-Token": mint_service_token(secret=INTER_SERVICE_SECRET, issuer="test")}
 
 
-class FakeFilesClient:
-    """In-process FilesClient that records calls."""
+class FakeFilesReadClient:
+    """In-process stand-in for FilesReadClient used by avatars_read."""
 
-    def __init__(self, *, not_found: bool = False, urls=None) -> None:
-        self.uploads: list = []
-        self.deletes: list = []
-        self.not_found = not_found
-        self._urls = urls or {}
-        self._next_id = 1
+    def __init__(self) -> None:
+        self.has_avatar = False
+        self.url = None
+        self.calls = {"get_avatar": 0, "presign": 0}
 
-    def upload_avatar(self, *, user_id, content, filename, content_type, **kw):
-        from app.services.files_client import MediaRef
-
-        media_id = _uuid.UUID(int=self._next_id)
-        self._next_id += 1
-        ref = MediaRef(
-            media_id=media_id,
-            bucket="avatars",
-            key=f"users/{user_id}/y.png",
-            size_bytes=len(content),
-            mimetype=content_type,
-            purpose="profile_photo",
-        )
-        self.uploads.append(ref)
-        return ref
+    def set_has_avatar(self, has_avatar: bool, *, url: str | None = None) -> None:
+        self.has_avatar = has_avatar
+        self.url = url
 
     def get_avatar(self, *, user_id):
-        from app.services.files_client import MediaRef
+        from shared.utils.exceptions import NotFoundError
 
-        if self.not_found:
-            from shared.utils.exceptions import NotFoundError
-
+        self.calls["get_avatar"] += 1
+        if not self.has_avatar:
             raise NotFoundError("no avatar")
-        return MediaRef(
-            media_id=_uuid.UUID("11111111-1111-1111-1111-111111111111"),
-            bucket="avatars",
-            key=f"users/{user_id}/y.png",
-            size_bytes=42,
-            mimetype="image/png",
-            purpose="profile_photo",
-        )
-
-    def delete_avatar(self, *, user_id):
-        self.deletes.append(user_id)
+        return _FakeRef(media_id=_uuid.uuid4(), user_id=user_id)
 
     def presign(self, *, media_id, ttl_seconds):
-        return self._urls.get(media_id, f"https://test/{media_id}.png?ttl={ttl_seconds}")
+        self.calls["presign"] += 1
+        return self.url or f"https://test/{media_id}.png?ttl={ttl_seconds}"
+
+
+class _FakeRef:
+    def __init__(self, *, media_id, user_id):
+        self.media_id = media_id
+        self.user_id = user_id
+        self.bucket = "avatars"
+        self.key = f"users/{user_id}/x.png"
+        self.size_bytes = 42
+        self.mimetype = "image/png"
+        self.purpose = "profile_photo"
 
 
 @pytest.fixture
-def fake_files_client() -> FakeFilesClient:
-    return FakeFilesClient()
+def fake_files_read_client() -> FakeFilesReadClient:
+    return FakeFilesReadClient()
 
 
 @pytest.fixture
@@ -145,12 +130,14 @@ def client(
     db_session,
     fake_event_bus,
     svc_headers,
-    fake_files_client,
+    fake_files_read_client,
     monkeypatch,
 ):
-    from app.services import avatars as avatars_module
+    from app.services import avatars_read as avatars_read_module
 
-    monkeypatch.setattr(avatars_module, "_FILES_CLIENT_OVERRIDE", fake_files_client)
+    monkeypatch.setattr(
+        avatars_read_module, "_FILES_READ_CLIENT_OVERRIDE", fake_files_read_client,
+    )
 
     from app.main import create_app
 

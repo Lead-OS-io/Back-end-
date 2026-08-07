@@ -55,3 +55,41 @@ def test_patch_me_rejects_email_field(client, db_session):
         json={"email": "evil@x.com"},
     )
     assert resp.status_code == 422
+
+
+def test_me_returns_avatar_summary_when_remote_has_avatar(
+    client, db_session, fake_files_read_client
+):
+    from app.services.avatars_read import _set_files_read_client_for_tests
+
+    user = _seed_user(db_session)
+    fake_files_read_client.set_has_avatar(True, url="https://example/x.png?sig=1")
+    _set_files_read_client_for_tests(fake_files_read_client)
+    try:
+        resp = client.get("/api/auth/me", headers=_bearer(client, user.id))
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["has_avatar"] is True
+        assert body["avatar_url"] == "https://example/x.png?sig=1"
+    finally:
+        from app.services.avatars_read import _reset_files_read_client_for_tests
+        _reset_files_read_client_for_tests()
+
+
+def test_me_returns_no_avatar_when_remote_404(
+    client, db_session, fake_files_read_client
+):
+    from app.services.avatars_read import _set_files_read_client_for_tests
+
+    user = _seed_user(db_session)
+    fake_files_read_client.set_has_avatar(False)
+    _set_files_read_client_for_tests(fake_files_read_client)
+    try:
+        resp = client.get("/api/auth/me", headers=_bearer(client, user.id))
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["has_avatar"] is False
+        assert body["avatar_url"] is None
+    finally:
+        from app.services.avatars_read import _reset_files_read_client_for_tests
+        _reset_files_read_client_for_tests()
