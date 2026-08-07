@@ -8,8 +8,7 @@ class Settings(BaseServiceSettings):
 
     AUTH_SERVICE_URL: str = "http://localhost:8001"
     TENANT_SERVICE_URL: str = "http://localhost:8002"
-    USERS_SERVICE_URL: str = "http://localhost:8003"
-    FILES_SERVICE_URL: str = "http://localhost:8004"
+    FILES_SERVICE_URL: str = "http://localhost:8003"
 
     SECRET_KEY: str
 
@@ -23,7 +22,6 @@ class Settings(BaseServiceSettings):
     def service_routes(self) -> dict[str, str]:
         return {
             "/api/auth": self.AUTH_SERVICE_URL,
-            "/api/users": self.USERS_SERVICE_URL,
             "/api/tenants": self.TENANT_SERVICE_URL,
             "/api/files": self.FILES_SERVICE_URL,
             "/api/resolve": self.TENANT_SERVICE_URL,
@@ -34,6 +32,5 @@ class Settings(BaseServiceSettings):
         return {
             "auth-service": self.AUTH_SERVICE_URL,
             "tenant-service": self.TENANT_SERVICE_URL,
-            "users-service": self.USERS_SERVICE_URL,
             "files-service": self.FILES_SERVICE_URL,
         }

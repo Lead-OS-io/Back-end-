@@ -1,6 +1,0 @@
-"""
-Users service package initialization
-"""
-
-
-
