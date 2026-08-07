@@ -1,6 +1,7 @@
 """MinIO backend for the StorageBackend Protocol. Wraps minio-py."""
 import io
-from typing import Any
+import json
+from datetime import timedelta
 
 from minio import Minio
 from minio.error import S3Error
@@ -64,8 +65,6 @@ class MinioBackend(StorageBackend):
         key: str,
         expires_seconds: int,
     ) -> str:
-        from datetime import timedelta
-
         return self._client.presigned_get_object(
             bucket, key, expires=timedelta(seconds=expires_seconds)
         )
@@ -76,13 +75,18 @@ class MinioBackend(StorageBackend):
 
     def set_bucket_public(self, *, bucket: str, public: bool) -> None:
         if public:
-            resource = f'"Resource":["arn:aws:s3:::{bucket}/*"]'
-            policy = (
-                '{"Version":"2012-10-17",'
-                '"Statement":[{"Effect":"Allow",'
-                '"Principal":{"AWS":["*"]},'
-                '"Action":["s3:GetObject"],'
-                + resource + ']}}'
+            policy = json.dumps(
+                {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {"AWS": ["*"]},
+                            "Action": ["s3:GetObject"],
+                            "Resource": [f"arn:aws:s3:::{bucket}/*"],
+                        }
+                    ],
+                }
             )
             self._client.set_bucket_policy(bucket, policy)
         else:
