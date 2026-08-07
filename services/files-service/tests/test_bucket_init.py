@@ -20,7 +20,7 @@ def test_lifespan_initialises_buckets(monkeypatch):
         INTER_SERVICE_SECRET="x",
         SECRET_KEY="x" * 40,
         REDIS_URL="redis://x",
-        INIT_BUCKETS=(("avatars", False), ("media", False), ("public_assets", True)),
+        INIT_BUCKETS=(("avatars", False), ("media", False), ("public-assets", True)),
     )
 
     from app.main import create_app
@@ -32,7 +32,7 @@ def test_lifespan_initialises_buckets(monkeypatch):
     assert fake.policies == {
         "avatars": False,
         "media": False,
-        "public_assets": True,
+        "public-assets": True,
     }
 
 
