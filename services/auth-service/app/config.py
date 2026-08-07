@@ -27,6 +27,7 @@ class Settings(BaseServiceSettings):
     SECRET_KEY: str = ""
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 40  # 40 minutes
+    REFRESH_TOKEN_EXPIRE_MINUTES: int = 60  # 1 hour (login service)
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # Encryption (Fernet key para passwords y refresh tokens de terceros)
