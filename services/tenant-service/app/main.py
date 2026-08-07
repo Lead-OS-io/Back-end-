@@ -6,7 +6,6 @@ from fastapi import FastAPI
 
 from app.config import Settings
 from app.events import build_handlers
-from app.router import router
 from shared.auth.middleware import ServiceTokenMiddleware
 from shared.cache.client import create_redis
 from shared.db.engine import create_service_engine, get_session_factory
@@ -51,7 +50,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="tenant-service", lifespan=lifespan)
     register_exception_handlers(app)
     app.add_middleware(ServiceTokenMiddleware, secret=settings.INTER_SERVICE_SECRET)
-    app.include_router(router)
 
     @app.get("/health")
     def health() -> dict:
