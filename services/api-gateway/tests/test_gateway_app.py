@@ -52,11 +52,11 @@ def test_health_is_public_and_has_security_headers(client):
 
 
 def test_private_route_without_jwt_is_401(client):
-    assert client.get("/api/users/me").status_code == 401
+    assert client.get("/api/auth/me").status_code == 401
 
 
 def test_client_cannot_forge_identity_headers(client):
-    resp = client.get("/api/users/me", headers={
+    resp = client.get("/api/auth/me", headers={
         "Authorization": f"Bearer {_user_token()}",
         "X-User-Id": "999", "X-Tenant-Id": "999",
     })
@@ -66,7 +66,7 @@ def test_client_cannot_forge_identity_headers(client):
 
 
 def test_gateway_injects_service_token_and_identity(client):
-    resp = client.get("/api/users/me", headers={"Authorization": f"Bearer {_user_token()}"})
+    resp = client.get("/api/auth/me", headers={"Authorization": f"Bearer {_user_token()}"})
     body = resp.json()
     claims = decode_service_token(body["service_token"], secret=ISS)
     assert claims["iss"] == "api-gateway"

@@ -25,8 +25,8 @@ async def test_forward_request_strips_hop_by_hop_headers():
         return httpx.Response(200, json={"ok": True})
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
-    req = _scope_request("GET", "/api/users", {"Host": "gateway", "X-Other": "keep",
-                                               "Connection": "close"})
+    req = _scope_request("GET", "/api/legacy/users", {"Host": "gateway", "X-Other": "keep",
+                                                        "Connection": "close"})
     resp = await forward_request(client, req, "http://auth-service:8001")
     assert resp.status_code == 200
     assert seen.get("x-other") == "keep"
@@ -45,7 +45,7 @@ async def test_retry_on_503_then_success():
         return httpx.Response(503 if calls["n"] < 3 else 200)
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
-    req = _scope_request("GET", "/api/users", {})
+    req = _scope_request("GET", "/api/legacy/users", {})
     resp = await forward_with_retry(client, req, "http://auth-service:8001", backoff=0)
     assert resp.status_code == 200 and calls["n"] == 3
 
@@ -59,6 +59,6 @@ async def test_no_retry_on_post():
         return httpx.Response(503)
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
-    req = _scope_request("POST", "/api/users", {})
+    req = _scope_request("POST", "/api/legacy/users", {})
     resp = await forward_with_retry(client, req, "http://auth-service:8001", backoff=0)
     assert resp.status_code == 503 and calls["n"] == 1

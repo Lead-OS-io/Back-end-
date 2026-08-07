@@ -18,6 +18,7 @@ def _settings() -> Settings:
         SECRET_KEY=_SECRET,
         REDIS_URL="redis://fake:6379/0",
         RATE_LIMIT_PER_MINUTE=1000,
+        FILES_SERVICE_URL="http://localhost:8004",
     )
 
 

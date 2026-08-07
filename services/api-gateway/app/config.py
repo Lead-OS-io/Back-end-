@@ -8,7 +8,7 @@ class Settings(BaseServiceSettings):
 
     AUTH_SERVICE_URL: str = "http://localhost:8001"
     TENANT_SERVICE_URL: str = "http://localhost:8002"
-    FILES_SERVICE_URL: str = "http://localhost:8003"
+    FILES_SERVICE_URL: str = "http://files-service:8004"
 
     SECRET_KEY: str
 

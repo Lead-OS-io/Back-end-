@@ -156,11 +156,11 @@ def delete_my_avatar(
 @router.get("/media/{media_id}/presign")
 def presign_media_public(
     media_id: uuid.UUID,
+    request: Request,
     ttl: int = 300,
     identity: Identity = Depends(get_current_identity),
     session: Session = Depends(_session),
     settings: Settings = Depends(_settings),
-    request: Request = None,
 ):
     media: Optional[MediaResources] = session.get(MediaResources, media_id)
     if media is None:
