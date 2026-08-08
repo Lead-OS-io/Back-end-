@@ -28,6 +28,20 @@ class Settings(BaseServiceSettings):
         }
 
     @property
+    def rewrite_routes(self) -> dict[str, str]:
+        """Map gateway path prefixes to upstream path prefixes.
+
+        ``files-service`` exposes public routes under ``/public/files`` but
+        clients reach them through the gateway as ``/api/files``. This maps
+        gateway paths to the upstream layout while keeping the simpler routes
+        (auth/tenant) untouched because their upstreams already use the same
+        ``/api/*`` prefix.
+        """
+        return {
+            "/api/files": "/public/files",
+        }
+
+    @property
     def upstreams(self) -> dict[str, str]:
         return {
             "auth-service": self.AUTH_SERVICE_URL,

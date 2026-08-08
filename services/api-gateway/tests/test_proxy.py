@@ -62,3 +62,21 @@ async def test_no_retry_on_post():
     req = _scope_request("POST", "/api/legacy/users", {})
     resp = await forward_with_retry(client, req, "http://auth-service:8001", backoff=0)
     assert resp.status_code == 503 and calls["n"] == 1
+
+
+@pytest.mark.asyncio
+async def test_forward_request_uses_strip_path_when_configured():
+    seen_path = None
+
+    async def upstream(request: httpx.Request) -> httpx.Response:
+        nonlocal seen_path
+        seen_path = request.url.path
+        return httpx.Response(200, json={"ok": True})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(upstream))
+    req = _scope_request("POST", "/api/files/users/me/avatar", {})
+    resp = await forward_request(
+        client, req, "http://files-service:8004", strip_path="/public/files/users/me/avatar"
+    )
+    assert resp.status_code == 200
+    assert seen_path == "/public/files/users/me/avatar"

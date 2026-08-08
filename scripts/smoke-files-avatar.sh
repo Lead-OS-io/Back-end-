@@ -64,8 +64,8 @@ delete_status=$(curl -fsS -o /dev/null -w '%{http_code}' \
     -H "$auth_header")
 [[ "$delete_status" == "204" ]] || { echo "delete expected 204, got $delete_status"; exit 1; }
 
-# Get after delete (404)
-get_after_status=$(curl -fsS -o /dev/null -w '%{http_code}' \
+# Get after delete (404) - curl -f treats 404 as an error, so don't use -f here.
+get_after_status=$(curl -s -o /dev/null -w '%{http_code}' \
     -X GET "$BASE_URL/api/files/users/me/avatar" \
     -H "$auth_header")
 [[ "$get_after_status" == "404" ]] || { echo "get-after expected 404, got $get_after_status"; exit 1; }
@@ -76,3 +76,4 @@ has_avatar_after=$(echo "$me_response_after" | python3 -c 'import sys, json; pri
 [[ "$has_avatar_after" == "False" ]] || { echo "/me has_avatar expected False, got $has_avatar_after"; exit 1; }
 
 echo "OK: direct file-service access smoke test passed"
+

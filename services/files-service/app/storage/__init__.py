@@ -10,6 +10,7 @@ def get_storage(settings: Settings) -> StorageBackend:
     if backend == "minio":
         return MinioBackend(
             endpoint=settings.MINIO_ENDPOINT,
+            public_endpoint=settings.MINIO_PUBLIC_ENDPOINT,
             root_user=settings.MINIO_ROOT_USER,
             root_password=settings.MINIO_ROOT_PASSWORD,
             secure=settings.MINIO_SECURE,

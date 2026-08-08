@@ -92,3 +92,16 @@ def test_unknown_prefix_returns_502(client):
     resp = client.get("/api/unknown/thing",
                       headers={"Authorization": f"Bearer {_user_token()}"})
     assert resp.status_code == 502
+
+
+def test_gateway_strips_service_prefix_before_proxy(client):
+    resp = client.get("/api/files/users/me/avatar",
+                      headers={"Authorization": f"Bearer {_user_token()}"})
+    assert resp.status_code == 200
+    assert resp.json()["path"] == "/public/files/users/me/avatar"
+
+
+def test_auth_prefix_keeps_path_intact(client):
+    resp = client.get("/api/auth/me", headers={"Authorization": f"Bearer {_user_token()}"})
+    assert resp.status_code == 200
+    assert resp.json()["path"] == "/api/auth/me"

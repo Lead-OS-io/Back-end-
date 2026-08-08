@@ -20,5 +20,11 @@ def test_identity_headers_minimal_claims():
     assert "X-Role-Id" not in headers
 
 
+def test_identity_headers_omits_tenant_when_null():
+    headers = identity_headers_from_claims({"sub": "3", "tenant_id": None})
+    assert headers == {"X-User-Id": "3", "X-Is-Superuser": "false"}
+    assert "X-Tenant-Id" not in headers
+
+
 def test_identity_headers_tuple_covers_service_token():
     assert "X-Service-Token" in IDENTITY_HEADERS

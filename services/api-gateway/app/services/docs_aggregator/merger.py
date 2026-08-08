@@ -42,6 +42,31 @@ def _merge_schemas(target: dict, source: Mapping[str, object]) -> None:
         target_schemas[name] = schema
 
 
+def _normalize_path(service_name: str, path: str) -> str | None:
+    """Map upstream paths into gateway-facing paths.
+
+    - auth-service paths start with /api/auth → keep as-is.
+    - tenant-service paths start with /api/tenants (or no prefix) → keep as /api/tenants/*.
+    - files-service public paths start with /public/files → map to /api/files.
+    - files-service internal paths start with /internal/files → drop (not for clients).
+    - Legacy /{service_name}/... prefixes are stripped when present.
+    """
+    tag = service_name
+    legacy_prefix = f"/{tag}"
+    if path.startswith(legacy_prefix):
+        path = path[len(legacy_prefix):] or "/"
+
+    if service_name == "files-service":
+        if path.startswith("/public/files"):
+            return "/api/files" + path[len("/public/files"):]
+        if path.startswith("/internal/files"):
+            return None
+
+    if not path.startswith("/"):
+        path = "/" + path
+    return path
+
+
 def merge_openapi(specs: dict[str, dict]) -> dict:
     base = {
         "openapi": "3.1.0",
@@ -55,11 +80,10 @@ def merge_openapi(specs: dict[str, dict]) -> dict:
     }
     for service_name, spec in specs.items():
         tag = service_name
-        prefix = f"/{tag}"
         for path, methods in (spec.get("paths") or {}).items():
-            normalized_path = path[len(prefix):] if path.startswith(prefix) else path
-            if not normalized_path.startswith("/"):
-                normalized_path = "/" + normalized_path
+            normalized_path = _normalize_path(service_name, path)
+            if normalized_path is None:
+                continue
             existing = base["paths"].get(normalized_path)
             merged_methods: dict = existing or {}
             for method, op in methods.items():

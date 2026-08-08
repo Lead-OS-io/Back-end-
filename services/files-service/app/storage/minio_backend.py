@@ -14,6 +14,7 @@ class MinioBackend(StorageBackend):
         self,
         *,
         endpoint: str,
+        public_endpoint: str = "",
         root_user: str,
         root_password: str,
         secure: bool,
@@ -24,6 +25,7 @@ class MinioBackend(StorageBackend):
             secret_key=root_password,
             secure=secure,
         )
+        self._public_endpoint = public_endpoint or endpoint
 
     def put_object(
         self,
@@ -65,9 +67,30 @@ class MinioBackend(StorageBackend):
         key: str,
         expires_seconds: int,
     ) -> str:
-        return self._client.presigned_get_object(
-            bucket, key, expires=timedelta(seconds=expires_seconds)
+        # The URL returned by minio-py is signed against the internal endpoint.
+        # A simple host rewrite makes the URL invalid because AWS signature v4
+        # covers the Host header. To produce a valid public URL we temporarily
+        # point the existing client to the public endpoint, generate the
+        # presigned URL, and then restore the internal endpoint. This keeps the
+        # internal endpoint in use for all other SDK calls.
+        if not self._public_endpoint or self._public_endpoint == self._client._base_url.host:
+            return self._client.presigned_get_object(
+                bucket, key, expires=timedelta(seconds=expires_seconds)
+            )
+        original_base_url = self._client._base_url
+        from minio.helpers import BaseURL
+        public_url = BaseURL(
+            f"http://{self._public_endpoint}",
+            region=original_base_url.region,
         )
+        self._client._base_url = public_url
+        try:
+            url = self._client.presigned_get_object(
+                bucket, key, expires=timedelta(seconds=expires_seconds)
+            )
+        finally:
+            self._client._base_url = original_base_url
+        return url
 
     def ensure_bucket(self, *, bucket: str) -> None:
         if not self._client.bucket_exists(bucket):
