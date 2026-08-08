@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from app.config import Settings
 from app.events import build_handlers
 from app.router import router
+from app.services.onboarding_completion import OnboardingCompletionRegistry
 from shared.auth.middleware import ServiceTokenMiddleware
 from shared.cache.client import create_redis
 from shared.db.engine import create_service_engine, get_session_factory
@@ -26,9 +27,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         session_factory = get_session_factory(engine)
         redis = create_redis(settings.REDIS_URL)
         event_bus = EventBus(settings.REDIS_URL)
+        completion_registry = OnboardingCompletionRegistry()
         app.state.session_factory = session_factory
         app.state.redis = redis
         app.state.event_bus = event_bus
+        app.state.completion_registry = completion_registry
         app.state.settings = settings
 
         consumer = Consumer(
@@ -36,7 +39,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             domain="onboarding",
             group="auth-service",
             consumer_name=f"auth-service-{settings.SERVICE_NAME}",
-            handlers=build_handlers(session_factory, event_bus),
+            handlers=build_handlers(session_factory, event_bus, completion_registry),
             block_ms=5000,
         )
         thread = threading.Thread(target=consumer.run_forever, daemon=True)

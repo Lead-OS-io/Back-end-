@@ -34,8 +34,10 @@ def test_assigns_tenant_and_marks_active(db_session):
                  "support_inbox": "support@acme.com"},
     )
     bus = MagicMock()
-    handle_tenant_created(event, db=db_session, event_bus=bus)
+    result = handle_tenant_created(event, db=db_session, event_bus=bus)
 
+    assert result is not None
+    assert result.id == user.id
     db_session.refresh(user)
     assert user.tenant_id == uuid.UUID("00000000-0000-0000-0000-000000000099")
     assert user.status == UserStatus.ACTIVE.value

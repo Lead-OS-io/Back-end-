@@ -22,6 +22,7 @@ PUBLIC_PATH_PREFIXES = (
     "/api/openapi.json",
     "/api/auth/onboarding",
     "/api/auth/login",
+    "/api/auth/refresh",
     "/api/auth/google",
     "/api/auth/password",
     "/media",

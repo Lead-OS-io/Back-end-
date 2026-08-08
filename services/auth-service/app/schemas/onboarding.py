@@ -43,3 +43,10 @@ class OnboardingRequest(BaseModel):
 class OnboardingAcceptedResponse(BaseModel):
     user_id: UUID
     status: UserStatus = UserStatus.PENDING_TENANT
+
+
+class OnboardingCompletedResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
+    user: dict

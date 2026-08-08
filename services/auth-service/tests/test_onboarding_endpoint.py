@@ -1,3 +1,6 @@
+import uuid
+
+
 def _payload(**over):
     base = dict(
         email="founder@acme.com",
@@ -14,6 +17,8 @@ def _payload(**over):
 
 
 def test_returns_202_with_pending_status(client):
+    # Reduce long-poll timeout so the test does not wait the default 10s.
+    client.app.state.settings.ONBOARDING_LONG_POLL_SECONDS = 1
     resp = client.post("/api/auth/onboarding", json=_payload())
     assert resp.status_code == 202
     body = resp.json()
@@ -21,7 +26,37 @@ def test_returns_202_with_pending_status(client):
     assert body["status"] == "pending_tenant"
 
 
+def test_onboarding_completes_and_returns_200(client):
+    from app.services.onboarding_completion import OnboardingCompletion, OnboardingCompletionRegistry
+
+    class AutoCompleteRegistry(OnboardingCompletionRegistry):
+        def register(self, user_id):
+            event = super().register(user_id)
+            self.complete(
+                OnboardingCompletion(
+                    user_id=user_id,
+                    tenant_id=uuid.UUID("00000000-0000-0000-0000-000000000099"),
+                )
+            )
+            return event
+
+    settings = client.app.state.settings
+    settings.ONBOARDING_LONG_POLL_SECONDS = 5
+    client.app.state.completion_registry = AutoCompleteRegistry()
+
+    resp = client.post("/api/auth/onboarding", json=_payload(email="complete@acme.com"))
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "access_token" in body
+    assert body["token_type"] == "bearer"
+    assert body["expires_in"] == settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    assert body["user"]["status"] == "active"
+    assert body["user"]["tenant_id"] == "00000000-0000-0000-0000-000000000099"
+    assert "refresh_token" in resp.cookies
+
+
 def test_duplicate_email_returns_409(client):
+    client.app.state.settings.ONBOARDING_LONG_POLL_SECONDS = 1
     client.post("/api/auth/onboarding", json=_payload())
     resp = client.post("/api/auth/onboarding", json=_payload())
     assert resp.status_code == 409
@@ -45,6 +80,7 @@ def test_invalid_email_returns_422(client):
 
 
 def test_phone_optional_returns_202(client):
+    client.app.state.settings.ONBOARDING_LONG_POLL_SECONDS = 1
     payload = _payload()
     payload.pop("phone")
     resp = client.post("/api/auth/onboarding", json=payload)

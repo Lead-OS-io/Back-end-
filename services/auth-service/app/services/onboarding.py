@@ -1,5 +1,6 @@
 import logging
 import uuid
+from typing import Optional
 
 from passlib.context import CryptContext
 from sqlmodel import Session, select
@@ -58,20 +59,26 @@ def publish_pending(*, event_bus: EventBus, user: User, data: OnboardingRequest)
 
 def handle_tenant_created(
     event: EventEnvelope, *, db: Session, event_bus: EventBus
-) -> None:
+) -> Optional[User]:
+    """Assign tenant to user and publish onboarding.completed.
+
+    Returns the updated user when the assignment happened, or None when the
+    user was unknown or already active.
+    """
     user_id = uuid.UUID(event.aggregate_id)
     user = db.get(User, user_id)
     if not user:
         logger.warning("tenant.created for unknown user %s; skipping", user_id)
-        return
+        return None
 
     if user.status == UserStatus.ACTIVE:
         logger.info("user %s already active; skipping idempotently", user_id)
-        return
+        return None
 
     user.tenant_id = uuid.UUID(event.payload["tenant_id"])
     user.status = UserStatus.ACTIVE.value  # str
     db.commit()
+    db.refresh(user)
 
     event_bus.publish(
         "onboarding",
@@ -91,3 +98,18 @@ def handle_tenant_created(
             },
         ),
     )
+    return user
+
+
+def wait_for_onboarding_completion(
+    *,
+    registry,
+    user_id: uuid.UUID,
+    timeout: float,
+) -> Optional[uuid.UUID]:
+    """Wait for the consumer to mark onboarding completed for `user_id`.
+
+    Returns the tenant_id if completed within `timeout`, otherwise None.
+    """
+    completion = registry.wait_for(user_id, timeout=timeout)
+    return completion.tenant_id if completion else None

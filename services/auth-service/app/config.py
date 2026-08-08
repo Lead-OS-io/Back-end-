@@ -45,6 +45,9 @@ class Settings(BaseServiceSettings):
     # Presigned URL TTL for files-service avatar reads
     PRESIGN_TTL_SECONDS: int = 300
 
+    # Onboarding long-poll: how many seconds to wait for tenant.created event
+    ONBOARDING_LONG_POLL_SECONDS: int = 10
+
     # Cookie configuration
     COOKIE_SECURE: bool = False
     COOKIE_SAMESITE: str = "strict"

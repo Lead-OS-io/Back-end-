@@ -8,7 +8,8 @@ from sqlmodel import Session
 from app import controller
 from app.config import Settings
 from app.schemas.auth import LoginRequest
-from app.schemas.onboarding import OnboardingAcceptedResponse, OnboardingRequest
+from app.schemas.onboarding import OnboardingRequest
+from app.services.onboarding_completion import OnboardingCompletionRegistry
 from app.schemas.user import UserUpdateRequest
 from shared.db.engine import get_db
 from shared.events.bus import EventBus
@@ -43,18 +44,34 @@ def _with_set_cookie(payload: dict, response: Response,
     return json_resp
 
 
+def _get_completion_registry(request: Request) -> OnboardingCompletionRegistry:
+    return request.app.state.completion_registry
+
+
 @router.post(
     "/onboarding",
-    response_model=OnboardingAcceptedResponse,
     status_code=202,
 )
 def onboarding(
     data: OnboardingRequest,
+    request: Request,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
     event_bus: EventBus = Depends(get_event_bus),
+    completion_registry: OnboardingCompletionRegistry = Depends(_get_completion_registry),
+    response: Response = Response(),
 ):
-    return controller.onboarding(data=data, db=db, settings=settings, event_bus=event_bus)
+    payload = controller.onboarding(
+        data=data,
+        db=db,
+        settings=settings,
+        event_bus=event_bus,
+        response=response,
+        completion_registry=completion_registry,
+        request=request,
+    )
+    json_resp = _with_set_cookie(payload, response, status_code=200 if "access_token" in payload else 202)
+    return json_resp
 
 
 @router.post("/login")

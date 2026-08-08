@@ -1,24 +1,26 @@
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import Response
+from fastapi.encoders import jsonable_encoder
 
 from app.config import Settings
-from app.models.entities import User
+from app.models.entities import RefreshToken, User
+from app.models.enums import UserStatus
 from app.schemas.onboarding import (
     OnboardingAcceptedResponse,
+    OnboardingCompletedResponse,
     OnboardingRequest,
 )
 from app.schemas.user import UserResponse
-from app.services.onboarding import publish_pending, start_onboarding
+from app.services.auth_tokens import hash_refresh, mint_access_token, mint_refresh_token
+from app.services.onboarding import (
+    publish_pending,
+    start_onboarding,
+    wait_for_onboarding_completion,
+)
+from app.services.onboarding_completion import OnboardingCompletionRegistry
 from shared.events.bus import EventBus
-
-
-def onboarding(
-    *, data: OnboardingRequest, db, settings, event_bus: EventBus
-) -> OnboardingAcceptedResponse:
-    user = start_onboarding(db=db, data=data)
-    publish_pending(event_bus=event_bus, user=user, data=data)
-    return OnboardingAcceptedResponse(user_id=user.id, status=user.status)
 
 
 def _client_ip(request) -> Optional[str]:
@@ -58,6 +60,7 @@ def _build_user_response(
     summary = get_avatar_summary(settings=settings, user_id=user.id)
     return UserResponse(
         user_id=str(user.id),
+        tenant_id=str(user.tenant_id) if user.tenant_id else None,
         email=user.email,
         full_name=user.full_name,
         phone=user.phone,
@@ -67,6 +70,71 @@ def _build_user_response(
         created_at=user.created_at.isoformat(),
         modified_at=user.modified_at.isoformat(),
     ).model_dump()
+
+
+def _open_session(
+    *, user: User, db, settings: Settings, request, response: Response
+) -> dict:
+    access_token, _ = mint_access_token(
+        user_id=user.id,
+        tenant_id=user.tenant_id,
+        status=user.status,
+        ttl_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+        secret=settings.SECRET_KEY,
+    )
+    refresh_raw = mint_refresh_token()
+    refresh_expires_at = datetime.utcnow() + timedelta(
+        minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES
+    )
+    row = RefreshToken(
+        user_id=user.id,
+        tenant_id=user.tenant_id,
+        token_hash=hash_refresh(refresh_raw),
+        expires_at=refresh_expires_at,
+        ip=_client_ip(request),
+        user_agent=_user_agent(request),
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    _set_refresh_cookie(response, refresh_raw, settings)
+    return OnboardingCompletedResponse(
+        access_token=access_token,
+        token_type="bearer",
+        expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        user=_build_user_response(user=user, db=db, settings=settings),
+    ).model_dump()
+
+
+def onboarding(
+    *,
+    data: OnboardingRequest,
+    db,
+    settings: Settings,
+    event_bus: EventBus,
+    response: Response,
+    completion_registry: OnboardingCompletionRegistry,
+    request,
+) -> dict:
+    user = start_onboarding(db=db, data=data)
+    publish_pending(event_bus=event_bus, user=user, data=data)
+
+    tenant_id = wait_for_onboarding_completion(
+        registry=completion_registry,
+        user_id=user.id,
+        timeout=float(settings.ONBOARDING_LONG_POLL_SECONDS),
+    )
+
+    if tenant_id is None:
+        return jsonable_encoder(
+            OnboardingAcceptedResponse(user_id=user.id, status=user.status)
+        )
+
+    db.refresh(user)
+    user.tenant_id = tenant_id
+    user.status = UserStatus.ACTIVE.value
+
+    return jsonable_encoder(_open_session(user=user, db=db, settings=settings, request=request, response=response))
 
 
 def login(*, data, settings: Settings, db, event_bus: EventBus,

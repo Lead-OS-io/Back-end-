@@ -16,6 +16,11 @@ from app.services.onboarding import (
     handle_tenant_created,
     publish_pending,
     start_onboarding,
+    wait_for_onboarding_completion,
+)
+from app.services.onboarding_completion import (
+    OnboardingCompletion,
+    OnboardingCompletionRegistry,
 )
 from app.services.refresh import RefreshOutcome, rotate_refresh
 from app.services.users import get_user_by_id, update_user
@@ -26,6 +31,8 @@ __all__ = [
     "FilesReadClient",
     "LoginOutcome",
     "MediaRef",
+    "OnboardingCompletion",
+    "OnboardingCompletionRegistry",
     "RefreshOutcome",
     "ValidateResult",
     "authenticate_and_open_session",
@@ -42,4 +49,5 @@ __all__ = [
     "start_onboarding",
     "update_user",
     "validate_access_token",
+    "wait_for_onboarding_completion",
 ]

@@ -12,6 +12,7 @@ class UserBase(BaseModel):
 
 class UserResponse(BaseModel):
     user_id: str
+    tenant_id: Optional[str]
     email: EmailStr
     full_name: Optional[str]
     phone: Optional[str]
